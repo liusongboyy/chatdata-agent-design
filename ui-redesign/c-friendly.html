@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>C · 轻量友好</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --surface:#fff; --surface-2:#f7f8fc;
+    --ink:#1b2340; --muted:#66708a; --faint:#98a0b8;
+    --line:#e7eaf3; --line-strong:#d5daea;
+    --accent:#5b6cff; --accent-2:#8b5cf6; --accent-soft:#eef0ff; --accent-deep:#4453d8;
+    --ok:#12b76a; --ok-soft:#e8f8f0; --warn:#f79009; --warn-soft:#fff4e5; --off:#98a0b8; --off-soft:#f0f2f8;
+    --r:14px; --r-lg:20px;
+    --sans:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:#dfe3ee;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .screen{position:relative;width:1440px;height:900px;overflow:hidden;background:var(--bg);margin:0 auto 36px;box-shadow:0 24px 70px rgba(27,35,64,.16)}
+  .tag{position:absolute;top:14px;left:14px;z-index:99;padding:6px 11px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font:600 10px/1 var(--mono);letter-spacing:.12em}
+  button{font:inherit;color:inherit;cursor:pointer}
+  input{font:inherit;color:inherit}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* ══════════ 登录 ══════════ */
+  .login{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;padding:44px 64px 52px;overflow:hidden}
+  .login::before{content:"";position:absolute;width:720px;height:720px;left:-220px;top:-280px;border-radius:50%;background:radial-gradient(circle,rgba(91,108,255,.22),transparent 66%)}
+  .login::after{content:"";position:absolute;width:640px;height:640px;right:-180px;bottom:-300px;border-radius:50%;background:radial-gradient(circle,rgba(139,92,246,.2),transparent 66%)}
+  .lg-top{position:relative;z-index:2;display:flex;align-items:center;gap:11px;align-self:flex-start;font-size:15px;font-weight:700;letter-spacing:.04em}
+  .lg-top .logo{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:15px;font-weight:800;box-shadow:0 8px 18px rgba(91,108,255,.28)}
+  .lg-top small{margin-left:6px;font:500 9px/1 var(--mono);letter-spacing:.16em;color:var(--faint)}
+  .hero{position:relative;z-index:2;margin-top:44px;text-align:center;max-width:620px}
+  .hero .pill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:#fff;box-shadow:0 4px 14px rgba(46,58,120,.07);font-size:11px;color:var(--muted)}
+  .hero .pill i{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+  .hero h1{margin:18px 0 0;font-size:38px;line-height:1.24;font-weight:700;letter-spacing:-.02em}
+  .hero h1 span{background:linear-gradient(120deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{margin:12px 0 0;font-size:13.5px;color:var(--muted)}
+  .cards{position:relative;z-index:2;display:grid;grid-template-columns:1fr 1.05fr;gap:26px;width:980px;margin-top:34px}
+  .card{background:var(--surface);border-radius:var(--r-lg);box-shadow:0 18px 50px rgba(46,58,120,.12),0 0 0 1px rgba(46,58,120,.04)}
+  .chat{padding:26px 26px 24px;display:flex;flex-direction:column;gap:14px}
+  .chat-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+  .chat-head b{font-size:13px}
+  .chat-head span{font-size:10px;color:var(--faint)}
+  .bubble{max-width:86%;padding:11px 14px;border-radius:14px;font-size:12.5px;line-height:1.65}
+  .bubble.me{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;border-bottom-right-radius:4px}
+  .bubble.ai{align-self:flex-start;background:var(--surface-2);color:var(--ink);border-bottom-left-radius:4px}
+  .bubble.ai small{display:block;margin-bottom:4px;font-size:9.5px;color:var(--faint)}
+  .answer{margin-top:2px;padding:14px 16px;border-radius:12px;background:linear-gradient(180deg,#f7f8ff,#fff);border:1px solid var(--line)}
+  .answer .val{font:700 28px/1 var(--mono);letter-spacing:-.02em}
+  .answer .val small{font-size:14px;color:var(--muted)}
+  .answer .cap{margin-top:6px;font-size:10px;color:var(--faint)}
+  .mini-bars{display:flex;align-items:flex-end;gap:5px;height:42px;margin-top:12px}
+  .mini-bars i{flex:1;border-radius:3px 3px 0 0;background:linear-gradient(to top,var(--accent),#a9b3ff)}
+  .chat-foot{display:flex;align-items:center;gap:7px;margin-top:auto;padding-top:6px;font-size:10px;color:var(--faint)}
+  .chat-foot i{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+  .form-card{padding:30px 32px 26px}
+  .form-card h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .form-card .sub{margin:7px 0 22px;font-size:12px;color:var(--muted)}
+  .form-card label{display:block;margin-bottom:14px}
+  .form-card label span{display:block;margin-bottom:7px;font-size:11px;font-weight:600;color:var(--muted)}
+  .form-card input{width:100%;height:42px;padding:0 13px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface-2);font-size:13px;outline:none;transition:.15s}
+  .form-card input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px rgba(91,108,255,.14)}
+  .captcha-row{display:flex;gap:9px}
+  .captcha-row input{flex:1}
+  .captcha{display:flex;align-items:center;justify-content:center;width:108px;height:42px;border:1px solid var(--line-strong);border-radius:10px;background:#f1f3ff;font:italic 700 18px/1 Georgia,serif;letter-spacing:.14em;color:var(--accent-deep);position:relative;overflow:hidden}
+  .captcha i{position:absolute;left:-6%;right:-6%;top:52%;height:1px;background:var(--accent);opacity:.5;transform:rotate(-6deg)}
+  .primary{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 18px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:13px;font-weight:650;box-shadow:0 8px 20px rgba(91,108,255,.28)}
+  .form-card .primary{width:100%;height:44px;margin-top:6px}
+  .fine{margin:14px 0 0;text-align:center;font-size:10.5px;color:var(--faint)}
+
+  /* ══════════ 后台 ══════════ */
+  .app{height:100%;display:flex;flex-direction:column}
+  .topbar{display:flex;align-items:center;gap:26px;height:70px;padding:0 34px;background:rgba(255,255,255,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700}
+  .brand .logo{display:flex;align-items:center;justify-content:center;width:31px;height:31px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:13px;font-weight:800}
+  .nav{display:flex;gap:4px;padding:4px;border-radius:11px;background:var(--surface-2)}
+  .nav a{padding:7px 15px;border-radius:8px;font-size:12.5px;color:var(--muted);text-decoration:none}
+  .nav a.active{background:#fff;color:var(--accent-deep);font-weight:650;box-shadow:0 2px 8px rgba(46,58,120,.09)}
+  .top-search{margin-left:auto;width:230px;height:36px;padding:0 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:12px;line-height:34px;color:var(--faint)}
+  .who{display:flex;align-items:center;gap:10px}
+  .avatar{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#dfe4ff,#eef0ff);color:var(--accent-deep);font-size:12px;font-weight:700}
+  .who b{display:block;font-size:12px}
+  .who small{display:block;margin-top:1px;font-size:9.5px;color:var(--faint)}
+  .main{flex:1;overflow:hidden;padding:28px 34px 30px;display:flex;flex-direction:column}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between}
+  .eyebrow{margin:0 0 8px;font-size:10px;font-weight:650;letter-spacing:.12em;color:var(--accent)}
+  .page-head h1{margin:0;font-size:27px;font-weight:750;letter-spacing:-.02em}
+  .page-sub{margin:8px 0 0;font-size:12.5px;color:var(--muted)}
+  .page-head .primary{height:38px;border-radius:10px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0 16px}
+  .stat{padding:15px 18px;border-radius:var(--r);background:var(--surface);box-shadow:0 0 0 1px var(--line),0 6px 18px rgba(46,58,120,.04);display:flex;align-items:center;gap:13px}
+  .stat .ico{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent-deep);font-size:13px;font-weight:700}
+  .stat b{display:block;font-size:22px;font-weight:750;letter-spacing:-.02em}
+  .stat span{display:block;margin-top:2px;font-size:10.5px;color:var(--faint)}
+  .filters{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--r);background:var(--surface);box-shadow:0 0 0 1px var(--line);margin-bottom:14px}
+  .filters input{width:220px;height:34px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);font-size:12.5px;outline:none}
+  .select{display:flex;align-items:center;gap:16px;height:34px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);font-size:12.5px;color:var(--muted)}
+  .select i{font-style:normal;font-size:9px;color:var(--faint)}
+  .ghost{height:34px;padding:0 13px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:12px;color:var(--muted)}
+  .filters .count{margin-left:auto;font-size:11px;color:var(--faint)}
+  .table-card{flex:1;min-height:0;border-radius:var(--r);background:var(--surface);box-shadow:0 0 0 1px var(--line),0 10px 30px rgba(46,58,120,.05);overflow:hidden;display:flex;flex-direction:column}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{padding:12px 18px;background:#fbfbfe;text-align:left;font-size:10px;font-weight:650;letter-spacing:.07em;color:var(--faint);text-transform:uppercase;border-bottom:1px solid var(--line)}
+  tbody td{padding:12px 18px;border-bottom:1px solid var(--line);white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:#fafbff}
+  .user-cell{display:flex;align-items:center;gap:11px}
+  .user-cell b{display:block;font-size:12.5px;font-weight:650}
+  .user-cell small{display:block;margin-top:2px;font-size:10px;color:var(--faint)}
+  .org{color:var(--muted)}
+  .org i{font-style:normal;color:var(--line-strong);margin:0 5px}
+  .role{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:var(--accent-soft);font-size:11px;color:var(--accent-deep);font-weight:550}
+  .role.gray{background:var(--off-soft);color:var(--muted)}
+  .state{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:550}
+  .state.on{background:var(--ok-soft);color:#0a8a50}
+  .state.off{background:var(--off-soft);color:var(--muted)}
+  .state::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+  .acts{display:flex;gap:6px;justify-content:flex-end}
+  .acts button{padding:5px 9px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:11px;color:var(--muted)}
+  .acts button:hover{border-color:#c9d0f5;color:var(--accent-deep)}
+  .table-foot{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--line);background:#fcfcff;font-size:11px;color:var(--faint)}
+  .pager{display:flex;gap:5px}
+  .pager button{width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:11px;color:var(--muted)}
+  .pager button.on{border-color:transparent;background:var(--accent-soft);color:var(--accent-deep);font-weight:650}
+
+  /* ══════════ 弹窗 + 组织树 ══════════ */
+  .dim{filter:saturate(.6);opacity:.5}
+  .overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:flex-start;justify-content:center;padding-top:70px;background:rgba(27,35,64,.34);backdrop-filter:blur(4px)}
+  .modal{width:760px;padding:28px 30px 24px;border-radius:22px;background:var(--surface);box-shadow:0 34px 90px rgba(27,35,64,.32);position:relative}
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+  .modal-head h2{margin:0;font-size:21px;font-weight:750}
+  .modal-head p{margin:6px 0 0;font-size:11.5px;color:var(--muted)}
+  .modal-head .x{width:30px;height:30px;border:none;border-radius:9px;background:var(--surface-2);color:var(--muted);font-size:15px}
+  .form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 18px}
+  .form-grid label{display:block;position:relative}
+  .form-grid label>span{display:block;margin-bottom:7px;font-size:11px;font-weight:600;color:var(--muted)}
+  .form-grid label.org{grid-column:1/-1}
+  .form-grid label.org .tree-trigger{width:50%}
+  .form-grid input{width:100%;height:40px;padding:0 12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface-2);font-size:13px;outline:none}
+  .tree-trigger{display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px;border:1px solid var(--accent);border-radius:10px;background:#fff;font-size:13px;box-shadow:0 0 0 4px rgba(91,108,255,.13)}
+  .tree-trigger i{font-style:normal;font-size:9px;color:var(--faint)}
+  .tree-panel{position:relative;margin-top:6px;z-index:30;width:50%;padding:9px;border-radius:12px;background:#fff;box-shadow:0 20px 50px rgba(27,35,64,.2),0 0 0 1px var(--line)}
+  .tree-search{width:100%;height:34px;margin-bottom:7px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);font-size:12px;outline:none}
+  .tree-row{display:flex;align-items:center;white-space:nowrap;gap:8px;height:33px;padding:0 9px;border-radius:7px;font-size:12.5px;color:var(--ink)}
+  .tree-row:hover{background:var(--surface-2)}
+  .tree-row.sel{background:var(--accent-soft);color:var(--accent-deep);font-weight:600}
+  .tree-row em{margin-left:auto;font:500 9px/1 var(--mono);font-style:normal;color:var(--faint)}
+  .tree-row .check{color:var(--accent-deep);font-size:11px;font-weight:700}
+  .tw{display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex:none;border-radius:5px;border:1px solid var(--line-strong);background:#fff;font-size:10px;color:var(--muted)}
+  .tw.leaf{border-color:transparent;background:transparent}
+  .roles{margin-top:18px}
+  .roles>span{display:block;margin-bottom:9px;font-size:11px;font-weight:600;color:var(--muted)}
+  .role-checks{display:flex;flex-wrap:wrap;gap:8px}
+  .role-checks label{display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;font-size:12px;color:var(--muted)}
+  .role-checks label.on{border-color:#c9d0f5;background:var(--accent-soft);color:var(--accent-deep);font-weight:600}
+  .cb{display:flex;align-items:center;justify-content:center;width:14px;height:14px;border:1px solid var(--line-strong);border-radius:4px;background:#fff;font-size:9px;color:#fff}
+  .role-checks label.on .cb{border-color:var(--accent);background:var(--accent)}
+  .modal-foot{display:flex;justify-content:flex-end;gap:9px;margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+  .modal-foot .ghost{height:38px;padding:0 18px;border-radius:10px}
+  .modal-foot .primary{height:38px;border-radius:10px}
+</style>
+</head>
+<body>
+
+<!-- 登录 -->
+<section class="screen">
+  <div class="tag">C · FRIENDLY — 登录</div>
+  <div class="login">
+    <div class="lg-top"><span class="logo">问</span>问数<small>CHATDATA AGENT</small></div>
+    <div class="hero">
+      <span class="pill"><i></i>账号中心 · 安全登录</span>
+      <h1>欢迎回来，<span>今天想查点什么？</span></h1>
+      <p>一个账号，连接你的组织、角色与数据权限。</p>
+    </div>
+    <div class="cards">
+      <div class="card chat">
+        <div class="chat-head"><b>问数助手</b><span>刚刚</span></div>
+        <div class="bubble me">上个月华东的有效保单保费合计是多少？</div>
+        <div class="bubble ai"><small>已理解你的问题</small>正在查询「华东 / 有效保单 / 上个月」…</div>
+        <div class="answer">
+          <div class="val">627,604.<small>31</small></div>
+          <div class="cap">保费合计 · 环比 +12.4%</div>
+          <div class="mini-bars"><i style="height:40%"></i><i style="height:55%"></i><i style="height:47%"></i><i style="height:68%"></i><i style="height:61%"></i><i style="height:84%"></i><i style="height:74%"></i><i style="height:96%"></i></div>
+        </div>
+        <div class="chat-foot"><i></i>已生成 SQL，可查看取数过程</div>
+      </div>
+      <div class="card form-card">
+        <h2>登录账号中心</h2>
+        <p class="sub">使用你的管理员或业务账号继续</p>
+        <label><span>账号</span><input value="admin"></label>
+        <label><span>密码</span><input type="password" value="admin123"></label>
+        <label><span>验证码</span>
+          <div class="captcha-row"><input value="W2FX"><div class="captcha">W2FX<i></i></div></div>
+        </label>
+        <button class="primary">登 录</button>
+        <p class="fine">登录即表示同意组织的安全策略</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 用户管理 -->
+<section class="screen">
+  <div class="tag">C · FRIENDLY — 用户管理</div>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="logo">问</span>问数</div>
+      <nav class="nav">
+        <a class="active">用户</a><a>组织</a><a>角色</a><a>数据策略</a>
+      </nav>
+      <div class="top-search">搜索账号、组织、角色…</div>
+      <div class="who"><div class="avatar">管</div><div><b>管理员</b><small>super_admin</small></div></div>
+    </header>
+    <main class="main">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow">USERS</p>
+          <h1>用户管理</h1>
+          <p class="page-sub">管理账号、所属组织与角色。组织决定数据范围。</p>
+        </div>
+        <button class="primary">＋ 新增用户</button>
+      </header>
+      <div class="stats">
+        <div class="stat"><div class="ico">5</div><div><b>5</b><span>全部账号</span></div></div>
+        <div class="stat"><div class="ico" style="background:var(--ok-soft);color:#0a8a50">4</div><div><b>4</b><span>启用中</span></div></div>
+        <div class="stat"><div class="ico" style="background:var(--warn-soft);color:#a86500">3</div><div><b>3</b><span>组织节点</span></div></div>
+      </div>
+      <div class="filters">
+        <input placeholder="搜索账号或姓名">
+        <button class="select">全部组织 <i>▾</i></button>
+        <button class="select">全部状态 <i>▾</i></button>
+        <button class="ghost">重置</button>
+        <span class="count">共 5 个账号</span>
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>用户</th><th>所属组织</th><th>角色</th><th>状态</th><th style="text-align:right">操作</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="user-cell"><div class="avatar">管</div><div><b>管理员</b><small>admin</small></div></div></td>
+              <td class="org">集团总部</td>
+              <td><span class="role">超级管理员</span></td>
+              <td><span class="state on">启用</span></td>
+              <td><div class="acts"><button>编辑</button><button>角色</button><button>重置密码</button></div></td>
+            </tr>
+            <tr>
+              <td><div class="user-cell"><div class="avatar" style="background:linear-gradient(135deg,#dff2e8,#eefaf3);color:#0a8a50">张</div><div><b>张三</b><small>zhangsan</small></div></div></td>
+              <td class="org">集团总部<i>/</i>华东<i>/</i>零售事业部</td>
+              <td><span class="role gray">区域经理</span></td>
+              <td><span class="state on">启用</span></td>
+              <td><div class="acts"><button>编辑</button><button>角色</button><button>重置密码</button></div></td>
+            </tr>
+            <tr>
+              <td><div class="user-cell"><div class="avatar" style="background:linear-gradient(135deg,#ffe9d6,#fff5ea);color:#a86500">李</div><div><b>李四</b><small>lisi</small></div></div></td>
+              <td class="org">集团总部<i>/</i>华东<i>/</i>上海门店</td>
+              <td><span class="role gray">客户经理</span></td>
+              <td><span class="state on">启用</span></td>
+              <td><div class="acts"><button>编辑</button><button>角色</button><button>重置密码</button></div></td>
+            </tr>
+            <tr>
+              <td><div class="user-cell"><div class="avatar" style="background:linear-gradient(135deg,#efdfff,#f8f0ff);color:#7a3bd8">王</div><div><b>王五</b><small>reviewer</small></div></div></td>
+              <td class="org">集团总部<i>/</i>风控中心</td>
+              <td><span class="role gray">反馈审核员</span></td>
+              <td><span class="state on">启用</span></td>
+              <td><div class="acts"><button>编辑</button><button>角色</button><button>重置密码</button></div></td>
+            </tr>
+            <tr>
+              <td><div class="user-cell"><div class="avatar" style="background:var(--off-soft);color:var(--muted)">赵</div><div><b>赵六</b><small>auditor</small></div></div></td>
+              <td class="org">集团总部<i>/</i>审计部</td>
+              <td><span class="role gray">审计员</span></td>
+              <td><span class="state off">停用</span></td>
+              <td><div class="acts"><button>编辑</button><button>角色</button><button>重置密码</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="table-foot"><span>显示 1–5，共 5 条</span><div class="pager"><button>‹</button><button class="on">1</button><button>›</button></div></div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- 新增用户 + 组织树 -->
+<section class="screen">
+  <div class="tag">C · FRIENDLY — 新增用户 / 组织树</div>
+  <div class="app dim">
+    <header class="topbar">
+      <div class="brand"><span class="logo">问</span>问数</div>
+      <nav class="nav"><a class="active">用户</a><a>组织</a><a>角色</a><a>数据策略</a></nav>
+      <div class="who"><div class="avatar">管</div><div><b>管理员</b><small>super_admin</small></div></div>
+    </header>
+    <main class="main">
+      <header class="page-head"><div><p class="eyebrow">USERS</p><h1>用户管理</h1></div></header>
+    </main>
+  </div>
+  <div class="overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div><h2>新增用户</h2><p>账号、组织与角色一起设置，保存后即生效。</p></div>
+        <button class="x">×</button>
+      </div>
+      <div class="form-grid">
+        <label><span>账号</span><input value="lisi"></label>
+        <label><span>姓名</span><input value="李四"></label>
+        <label><span>初始密码</span><input type="password" value="••••••"></label>
+        <label class="org"><span>所属组织</span>
+          <div class="tree-trigger">零售事业部 <i>▾</i></div>
+          <div class="tree-panel">
+            <input class="tree-search" placeholder="搜索名称或编码">
+            <div class="tree-row"><span class="tw">−</span>集团总部<em>HQ</em></div>
+            <div class="tree-row" style="padding-left:30px"><span class="tw">−</span>华东<em>EAST</em></div>
+            <div class="tree-row sel" style="padding-left:51px"><span class="tw leaf"></span>零售事业部<em>EAST-RETAIL</em><span class="check">✓</span></div>
+            <div class="tree-row" style="padding-left:51px"><span class="tw leaf"></span>上海门店<em>SH-01</em></div>
+            <div class="tree-row" style="padding-left:51px"><span class="tw leaf"></span>杭州门店<em>HZ-01</em></div>
+            <div class="tree-row" style="padding-left:30px"><span class="tw">+</span>华北<em>NORTH</em></div>
+            <div class="tree-row" style="padding-left:30px"><span class="tw">+</span>华南<em>SOUTH</em></div>
+            <div class="tree-row" style="padding-left:30px"><span class="tw leaf"></span>风控中心<em>RISK</em></div>
+            <div class="tree-row" style="padding-left:30px"><span class="tw leaf"></span>审计部<em>AUDIT</em></div>
+          </div>
+        </label>
+      </div>
+      <div class="roles">
+        <span>角色</span>
+        <div class="role-checks">
+          <label class="on"><span class="cb">✓</span>客户经理</label>
+          <label><span class="cb"></span>区域经理</label>
+          <label><span class="cb"></span>反馈审核员</label>
+          <label><span class="cb"></span>审计员</label>
+        </div>
+      </div>
+      <div class="modal-foot"><button class="ghost">取消</button><button class="primary">保存</button></div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>B · 数据年鉴</title>
+<style>
+  :root{
+    --paper:#f3eee4; --paper-2:#faf6ee; --ink:#211d18; --muted:#6c6357; --faint:#8f8577;
+    --line:#d9d1c2; --line-strong:#b9ad99; --accent:#9c3b2e; --accent-soft:#efe1da;
+    --ok:#3f6b4f; --warn:#a5762a; --danger:#9c3b2e;
+    --serif:"Songti SC","STSong","Noto Serif SC",Georgia,serif;
+    --sans:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:#dcd5c8;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .screen{position:relative;width:1440px;height:900px;overflow:hidden;background:var(--paper);margin:0 auto 36px;box-shadow:0 24px 70px rgba(33,29,24,.18)}
+  .screen::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.35;background-image:repeating-linear-gradient(0deg,rgba(120,105,85,.035) 0 1px,transparent 1px 4px)}
+  .tag{position:absolute;top:14px;left:14px;z-index:99;padding:6px 11px;background:var(--ink);color:var(--paper-2);font:600 10px/1 var(--mono);letter-spacing:.14em}
+  button{font:inherit;color:inherit;cursor:pointer}
+  input{font:inherit;color:inherit}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .folio{font:500 9px/1 var(--mono);letter-spacing:.18em;color:var(--faint);text-transform:uppercase}
+  .rule-d{height:3px;border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line)}
+
+  /* ══════════ 登录 ══════════ */
+  .login{display:grid;grid-template-columns:1.23fr .77fr;height:100%}
+  .login-left{display:flex;flex-direction:column;padding:56px 76px 48px;border-right:1px solid var(--line-strong)}
+  .lg-top{display:flex;align-items:baseline;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--line-strong)}
+  .lg-brand{font:600 17px/1 var(--serif);letter-spacing:.1em}
+  .lg-brand small{margin-left:10px;font:500 9px/1 var(--mono);letter-spacing:.18em;color:var(--faint)}
+  .lg-copy{margin-top:110px;max-width:660px}
+  .kicker{display:flex;align-items:center;gap:14px;margin:0 0 26px;font:500 10px/1 var(--mono);letter-spacing:.2em;color:var(--accent)}
+  .kicker::after{content:"";width:64px;height:1px;background:var(--accent)}
+  .lg-copy h1{margin:0;font-family:var(--serif);font-size:74px;font-weight:600;line-height:1.14;letter-spacing:-.02em}
+  .lg-copy h1 em{font-style:normal;color:var(--accent)}
+  .lg-sub{margin:28px 0 0;max-width:470px;font-size:14px;line-height:1.9;color:var(--muted)}
+  .stats{display:flex;gap:52px;margin-top:64px;padding-top:20px;border-top:1px solid var(--line)}
+  .stat b{display:block;font:600 27px/1 var(--serif);font-variant-numeric:tabular-nums}
+  .stat span{display:block;margin-top:7px;font:500 9px/1 var(--mono);letter-spacing:.14em;color:var(--faint)}
+  .lg-foot{margin-top:auto;display:flex;justify-content:space-between;padding-top:18px;border-top:1px solid var(--line)}
+  .login-right{display:flex;flex-direction:column;justify-content:center;padding:56px 64px;background:var(--paper-2)}
+  .login-right .eyebrow{margin:0 0 14px;font:500 10px/1 var(--mono);letter-spacing:.18em;color:var(--faint)}
+  .login-right h2{margin:0;font:600 34px/1.2 var(--serif);letter-spacing:-.01em}
+  .form-sub{margin:14px 0 46px;font-size:12.5px;line-height:1.8;color:var(--muted)}
+  .login-right label{display:block;margin-bottom:26px}
+  .login-right label span{display:block;margin-bottom:9px;font:500 10px/1 var(--mono);letter-spacing:.14em;color:var(--muted)}
+  .login-right input{width:100%;height:36px;padding:0 2px;border:none;border-bottom:1px solid var(--line-strong);background:transparent;font-size:15px;outline:none}
+  .login-right input:focus{border-bottom-color:var(--accent)}
+  .captcha-row{display:flex;align-items:flex-end;gap:14px}
+  .captcha-row input{flex:1}
+  .captcha{display:flex;align-items:center;justify-content:center;width:104px;height:36px;border-bottom:1px solid var(--line-strong);font:italic 700 18px/1 Georgia,serif;letter-spacing:.15em;color:var(--accent);position:relative}
+  .captcha i{position:absolute;left:-4%;right:-4%;top:52%;height:1px;background:var(--accent);opacity:.5;transform:rotate(-6deg)}
+  .primary{display:inline-flex;align-items:center;justify-content:center;height:46px;padding:0 20px;border:1px solid var(--ink);background:var(--ink);color:var(--paper-2);font-size:13px;font-weight:600;letter-spacing:.08em}
+  .login-right .primary{width:100%;margin-top:14px}
+  .fine{margin:20px 0 0;font-size:10.5px;line-height:1.7;color:var(--faint)}
+
+  /* ══════════ 后台 ══════════ */
+  .app{height:100%;display:flex;flex-direction:column;padding:0 64px}
+  .masthead{display:flex;align-items:center;gap:40px;height:78px;border-bottom:1px solid var(--line-strong)}
+  .wordmark{font:600 19px/1 var(--serif);letter-spacing:.1em}
+  .wordmark small{margin-left:10px;font:500 9px/1 var(--mono);letter-spacing:.18em;color:var(--faint)}
+  .nav{display:flex;gap:30px;margin-left:20px}
+  .nav a{display:flex;align-items:baseline;gap:7px;padding:8px 0;font-size:13px;color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}
+  .nav a span{font:500 9px/1 var(--mono);color:var(--faint)}
+  .nav a.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+  .nav a.active span{color:var(--accent)}
+  .who{margin-left:auto;display:flex;align-items:baseline;gap:14px;font-size:12px;color:var(--muted)}
+  .who b{font-weight:600;color:var(--ink)}
+  .who .out{font:500 10px/1 var(--mono);letter-spacing:.1em;color:var(--accent);text-decoration:none}
+  .crumb{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+  .crumb .left{display:flex;gap:10px;align-items:center;font:500 9px/1 var(--mono);letter-spacing:.16em;color:var(--faint)}
+  .crumb .left b{color:var(--ink)}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;padding:34px 0 24px}
+  .page-head .sec{display:flex;align-items:baseline;gap:16px}
+  .num{font:600 12px/1 var(--mono);color:var(--accent)}
+  .page-head h1{margin:0;font:600 48px/1 var(--serif);letter-spacing:-.02em}
+  .page-sub{margin:10px 0 0;font-size:12.5px;color:var(--muted);max-width:520px;line-height:1.7}
+  .toolbar{display:flex;align-items:flex-end;gap:28px;padding:0 0 14px;border-bottom:1px solid var(--line-strong)}
+  .toolbar label{display:flex;flex-direction:column;gap:7px}
+  .toolbar label span{font:500 9px/1 var(--mono);letter-spacing:.14em;color:var(--faint)}
+  .toolbar input{width:190px;height:30px;padding:0 1px;border:none;border-bottom:1px solid var(--line);background:transparent;font-size:13px;outline:none}
+  .select{display:flex;align-items:center;gap:22px;height:30px;padding:0 1px;border:none;border-bottom:1px solid var(--line);background:transparent;font-size:13px;color:var(--muted)}
+  .select i{font-style:normal;font-size:9px;color:var(--faint)}
+  .reset{height:30px;padding:0;border:none;background:transparent;font:500 10px/1 var(--mono);letter-spacing:.1em;color:var(--accent);text-decoration:underline;text-underline-offset:4px}
+  .toolbar .count{margin-left:auto;padding-bottom:8px;font:500 9px/1 var(--mono);letter-spacing:.14em;color:var(--faint)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{padding:13px 14px 11px 0;border-bottom:1px solid var(--line-strong);text-align:left;font:500 9px/1 var(--mono);letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
+  tbody td{padding:15px 14px 15px 0;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+  tbody tr:hover td{background:rgba(156,59,46,.035)}
+  .user b{display:block;font-size:13.5px;font-weight:600}
+  .user small{display:block;margin-top:3px;font:500 9px/1 var(--mono);color:var(--faint)}
+  .org{color:var(--muted)}
+  .org i{font-style:normal;color:var(--line-strong);margin:0 6px}
+  .chip{font-size:11.5px;color:var(--muted)}
+  .chip.accent{color:var(--accent);font-weight:600}
+  .status{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted)}
+  .status::before{content:"";width:5px;height:5px;background:var(--ok)}
+  .status.off::before{background:var(--faint)}
+  .acts{display:flex;gap:18px;font-size:11.5px}
+  .acts a{color:var(--accent);text-decoration:underline;text-underline-offset:4px}
+  .acts a.muted{color:var(--faint);text-decoration-style:dotted}
+  .table-foot{display:flex;align-items:center;justify-content:space-between;padding:16px 0;font:500 9px/1 var(--mono);letter-spacing:.14em;color:var(--faint)}
+  .pager{display:flex;gap:14px;color:var(--muted)}
+  .pager b{color:var(--accent)}
+
+  /* ══════════ 弹窗 + 组织树 ══════════ */
+  .dim{filter:saturate(.55);opacity:.5}
+  .overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:flex-start;justify-content:center;padding-top:64px;background:rgba(33,25,18,.4)}
+  .modal{width:776px;padding:0 30px 24px;background:var(--paper-2);border:1px solid var(--line-strong);box-shadow:0 30px 80px rgba(33,25,18,.3);position:relative}
+  .modal::before{content:"";position:absolute;top:7px;left:0;right:0;height:3px;border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line)}
+  .modal-head{display:flex;align-items:flex-end;justify-content:space-between;padding:22px 0 16px;border-bottom:1px solid var(--line-strong);margin-top:10px}
+  .modal-head .sec{font:600 10px/1 var(--mono);letter-spacing:.16em;color:var(--accent)}
+  .modal-head h2{margin:8px 0 0;font:600 30px/1 var(--serif)}
+  .modal-head .x{border:none;background:transparent;font-size:20px;color:var(--faint)}
+  .form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px 26px;padding-top:22px}
+  .form-grid label{display:block;position:relative}
+  .form-grid label>span{display:block;margin-bottom:8px;font:500 9px/1 var(--mono);letter-spacing:.14em;color:var(--muted)}
+  .form-grid label.org{grid-column:1/-1}
+  .form-grid label.org .tree-trigger{width:50%}
+  .form-grid input{width:100%;height:34px;padding:0 2px;border:none;border-bottom:1px solid var(--line-strong);background:transparent;font-size:14px;outline:none}
+  .tree-trigger{display:flex;align-items:center;justify-content:space-between;height:34px;border-bottom:1px solid var(--accent);font-size:14px}
+  .tree-trigger i{font-style:normal;font-size:9px;color:var(--faint)}
+  .tree-panel{position:relative;margin-top:6px;z-index:30;width:50%;padding:10px 0;background:var(--paper-2);border:1px solid var(--line-strong);box-shadow:0 20px 50px rgba(33,25,18,.22)}
+  .tree-panel::before{content:"";position:absolute;top:4px;left:0;right:0;height:2px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .tree-search{width:calc(100% - 24px);height:30px;margin:4px 12px 8px;padding:0 2px;border:none;border-bottom:1px solid var(--line-strong);background:transparent;font-size:12px;outline:none}
+  .tree-row{display:flex;align-items:center;white-space:nowrap;gap:9px;height:33px;padding:0 14px;font-size:12.5px;color:var(--muted)}
+  .tree-row:hover{background:rgba(156,59,46,.05)}
+  .tree-row.sel{background:var(--accent-soft);color:var(--accent);font-weight:600;box-shadow:inset 2px 0 0 var(--accent)}
+  .tree-row em{margin-left:auto;font:500 8.5px/1 var(--mono);font-style:normal;letter-spacing:.08em;color:var(--faint)}
+  .tree-row b{color:var(--accent)}
+  .tw{display:flex;align-items:center;justify-content:center;width:13px;height:13px;flex:none;border:1px solid var(--line-strong);font-size:9px;color:var(--muted)}
+  .tw.leaf{border-color:transparent}
+  .roles{margin-top:24px}
+  .roles>span{display:block;margin-bottom:12px;font:500 9px/1 var(--mono);letter-spacing:.14em;color:var(--muted)}
+  .role-checks{display:flex;flex-wrap:wrap;gap:10px 28px}
+  .role-checks label{display:flex;align-items:center;gap:8px;font-size:12.5px}
+  .cb{width:13px;height:13px;border:1px solid var(--line-strong);background:transparent;position:relative}
+  .cb.on{border-color:var(--accent)}
+  .cb.on::after{content:"×";position:absolute;left:1px;top:-4px;font-size:14px;color:var(--accent)}
+  .modal-foot{display:flex;justify-content:flex-end;gap:14px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line-strong)}
+  .modal-foot .ghost{height:40px;padding:0 22px;border:1px solid var(--line-strong);background:transparent;font-size:12px;letter-spacing:.06em;color:var(--muted)}
+  .modal-foot .primary{height:40px;padding:0 26px;letter-spacing:.06em}
+</style>
+</head>
+<body>
+
+<!-- 登录 -->
+<section class="screen">
+  <div class="tag">B · EDITORIAL — 登录</div>
+  <div class="login">
+    <div class="login-left">
+      <div class="lg-top">
+        <div class="lg-brand">问数<small>CHATDATA · AGENT</small></div>
+        <span class="folio">EST. 2026 / 账号中心</span>
+      </div>
+      <div class="lg-copy">
+        <p class="kicker">NATURAL LANGUAGE / DATA</p>
+        <h1>用中文提问，<br>直接得到<em>数据答案</em>。</h1>
+        <p class="lg-sub">面向业务人员的自然语言数据问答。用户、组织、角色与登录，在这里统一管理。</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>12</b><span>SEMANTIC DOMAINS</span></div>
+        <div class="stat"><b>86</b><span>REGISTERED TABLES</span></div>
+        <div class="stat"><b>240</b><span>BUSINESS TERMS</span></div>
+      </div>
+      <div class="lg-foot"><span class="folio">IDENTITY · ORG · ACCESS</span><span class="folio">NO. 001</span></div>
+    </div>
+    <div class="login-right">
+      <p class="eyebrow">SIGN IN / 登录</p>
+      <h2>进入账号中心</h2>
+      <p class="form-sub">请使用你的账号继续。登录只建立会话，令牌由授权服务签发。</p>
+      <label><span>账号 / USERNAME</span><input value="admin"></label>
+      <label><span>密码 / PASSWORD</span><input type="password" value="admin123"></label>
+      <label><span>验证码 / CAPTCHA</span>
+        <div class="captcha-row"><input value="W2FX"><div class="captcha">W2FX<i></i></div></div>
+      </label>
+      <button class="primary">登 录</button>
+      <p class="fine">验证码一次性有效。连续失败会触发账号锁定与限流。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 用户管理 -->
+<section class="screen">
+  <div class="tag">B · EDITORIAL — 用户管理</div>
+  <div class="app">
+    <header class="masthead">
+      <div class="wordmark">问数<small>CHATDATA</small></div>
+      <nav class="nav">
+        <a class="active"><span>01</span>用户</a>
+        <a><span>02</span>组织</a>
+        <a><span>03</span>角色</a>
+        <a><span>04</span>数据策略</a>
+      </nav>
+      <div class="who"><b>管理员</b><span>super_admin</span><a class="out" href="#">退出</a></div>
+    </header>
+    <div class="crumb"><div class="left"><span>账号中心</span><span>/</span><b>用户</b></div><span class="folio">NO. 04 / 2026</span></div>
+    <header class="page-head">
+      <div>
+        <div class="sec"><span class="num">01</span><h1>用户</h1></div>
+        <p class="page-sub">账号、所属组织与角色。组织决定数据范围，角色决定能看哪些行、哪些列。</p>
+      </div>
+      <button class="primary">新增用户</button>
+    </header>
+    <div class="toolbar">
+      <label><span>搜索</span><input placeholder="账号或姓名"></label>
+      <label><span>组织</span><button class="select">全部组织 <i>▾</i></button></label>
+      <label><span>状态</span><button class="select">全部状态 <i>▾</i></button></label>
+      <button class="reset">重置条件</button>
+      <span class="count">5 ACCOUNTS / 3 ORGS</span>
+    </div>
+    <table>
+      <thead><tr><th>账号 / 姓名</th><th>所属组织</th><th>角色</th><th>状态</th><th style="text-align:right">操作</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="user"><b>管理员</b><small>admin</small></td>
+          <td class="org">集团总部</td>
+          <td><span class="chip accent">超级管理员</span></td>
+          <td><span class="status">启用</span></td>
+          <td><div class="acts" style="justify-content:flex-end"><a>编辑</a><a>角色</a><a class="muted">重置密码</a></div></td>
+        </tr>
+        <tr>
+          <td class="user"><b>张三</b><small>zhangsan</small></td>
+          <td class="org">集团总部<i>/</i>华东<i>/</i>零售事业部</td>
+          <td><span class="chip">区域经理</span></td>
+          <td><span class="status">启用</span></td>
+          <td><div class="acts" style="justify-content:flex-end"><a>编辑</a><a>角色</a><a class="muted">重置密码</a></div></td>
+        </tr>
+        <tr>
+          <td class="user"><b>李四</b><small>lisi</small></td>
+          <td class="org">集团总部<i>/</i>华东<i>/</i>上海门店</td>
+          <td><span class="chip">客户经理</span></td>
+          <td><span class="status">启用</span></td>
+          <td><div class="acts" style="justify-content:flex-end"><a>编辑</a><a>角色</a><a class="muted">重置密码</a></div></td>
+        </tr>
+        <tr>
+          <td class="user"><b>王五</b><small>reviewer</small></td>
+          <td class="org">集团总部<i>/</i>风控中心</td>
+          <td><span class="chip">反馈审核员</span></td>
+          <td><span class="status">启用</span></td>
+          <td><div class="acts" style="justify-content:flex-end"><a>编辑</a><a>角色</a><a class="muted">重置密码</a></div></td>
+        </tr>
+        <tr>
+          <td class="user"><b>赵六</b><small>auditor</small></td>
+          <td class="org">集团总部<i>/</i>审计部</td>
+          <td><span class="chip">审计员</span></td>
+          <td><span class="status off">停用</span></td>
+          <td><div class="acts" style="justify-content:flex-end"><a>编辑</a><a>角色</a><a class="muted">重置密码</a></div></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="table-foot"><span>DISPLAYING 1–5 OF 5</span><div class="pager"><span>‹</span><b>1</b><span>›</span></div></div>
+  </div>
+</section>
+
+<!-- 新增用户 + 组织树 -->
+<section class="screen">
+  <div class="tag">B · EDITORIAL — 新增用户 / 组织树</div>
+  <div class="app dim">
+    <header class="masthead">
+      <div class="wordmark">问数<small>CHATDATA</small></div>
+      <nav class="nav"><a class="active"><span>01</span>用户</a><a><span>02</span>组织</a><a><span>03</span>角色</a><a><span>04</span>数据策略</a></nav>
+    </header>
+    <div class="crumb"><div class="left"><span>账号中心</span><span>/</span><b>用户</b></div></div>
+    <header class="page-head"><div><div class="sec"><span class="num">01</span><h1>用户</h1></div></div></header>
+  </div>
+  <div class="overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div><div class="sec">NEW USER / 新增</div><h2>新增用户</h2></div>
+        <button class="x">×</button>
+      </div>
+      <div class="form-grid">
+        <label><span>账号 / USERNAME</span><input value="lisi"></label>
+        <label><span>姓名 / DISPLAY NAME</span><input value="李四"></label>
+        <label><span>初始密码 / PASSWORD</span><input type="password" value="••••••"></label>
+        <label class="org"><span>所属组织 / ORGANIZATION</span>
+          <div class="tree-trigger">零售事业部 <i>▾</i></div>
+          <div class="tree-panel">
+            <input class="tree-search" placeholder="搜索名称或编码">
+            <div class="tree-row"><span class="tw">−</span>集团总部<em>HQ</em></div>
+            <div class="tree-row" style="padding-left:32px"><span class="tw">−</span>华东<em>EAST</em></div>
+            <div class="tree-row sel" style="padding-left:54px"><span class="tw leaf"></span>零售事业部<em>EAST-RETAIL</em><b>✓</b></div>
+            <div class="tree-row" style="padding-left:54px"><span class="tw leaf"></span>上海门店<em>SH-01</em></div>
+            <div class="tree-row" style="padding-left:54px"><span class="tw leaf"></span>杭州门店<em>HZ-01</em></div>
+            <div class="tree-row" style="padding-left:32px"><span class="tw">+</span>华北<em>NORTH</em></div>
+            <div class="tree-row" style="padding-left:32px"><span class="tw">+</span>华南<em>SOUTH</em></div>
+            <div class="tree-row" style="padding-left:32px"><span class="tw leaf"></span>风控中心<em>RISK</em></div>
+            <div class="tree-row" style="padding-left:32px"><span class="tw leaf"></span>审计部<em>AUDIT</em></div>
+          </div>
+        </label>
+      </div>
+      <div class="roles">
+        <span>角色 / ROLES</span>
+        <div class="role-checks">
+          <label><i class="cb on"></i>客户经理</label>
+          <label><i class="cb"></i>区域经理</label>
+          <label><i class="cb"></i>反馈审核员</label>
+          <label><i class="cb"></i>审计员</label>
+        </div>
+      </div>
+      <div class="modal-foot"><button class="ghost">取消</button><button class="primary">保存</button></div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
