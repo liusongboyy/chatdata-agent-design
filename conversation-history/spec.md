@@ -1,6 +1,6 @@
 # 问数会话历史（Conversation History）
 
-- Status: Draft
+- Status: Done（2026-10-26 补测试并核对）
 - Date: 2026-10-23
 - Related: `docs/adr/`, `.scratch/self-built-chatbi/spec.md` (FR-5.x)、`sql/12-ask-agent-session.sql`
 
