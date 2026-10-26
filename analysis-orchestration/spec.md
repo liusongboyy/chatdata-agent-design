@@ -1,6 +1,6 @@
 # 分析编排：一次提问，多次取数，确定性洞察
 
-- Status: In Progress（设计已确认 2026-10-26；实现中）
+- Status: Done（2026-10-26）
 - Date: 2026-10-26
 - Related: `docs/adr/0002`（权限执行点）、`.scratch/self-built-chatbi/spec.md` §8、`.scratch/analytics-dsl/`、`.scratch/conditional-metrics/`
 
@@ -272,5 +272,16 @@ ALTER TABLE ask_audit_log
 | 8 | SSE 阶段 + 前端结果区 | 5 |
 | 9 | 分析评测集 + 权限回归 | 全部 |
 
-进度：1–3 已完成（数据模型、`InsightCalculator`、计划 schema/解析，共 21 条单测）；
-4–9 待做。
+进度：**1–9 全部完成**。
+
+- 数据模型、`InsightCalculator`、计划 schema/解析：21 条单测
+- `AnalysisExecutor`（复用 render/execute，单步失败不中断、行数/耗时上限）
+- `AnalysisService`（编排主流程，含降级、叙述回落、审计）
+- `NarrativeGuard`（数字白名单）：7 条单测
+- 审计：`sql/19-ask-audit-analysis.sql` 加 4 列 + `idx_batch`
+- SSE：`PLANNING` / `SYNTHESIZING` 两个新阶段；前端「深入分析」开关与结果区
+- 引擎测试 578 通过
+
+实现时改了一处设计：审计关联用 `batch_id` 而不是 `parent_id`。
+原因是要拿父记录自增 id 就得"插入后回读主键"，而审计记录是不可变 record +
+MyBatis 注解 mapper，绕这一圈没有收益；批次号同样能唯一还原一次分析。
