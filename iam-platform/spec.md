@@ -41,7 +41,7 @@
 | 角色 | `sys_role` / `sys_user_role` + `RoleService` | 角色码是字符串，必须与 `perm_json` 里的 `rowRules[].role` 逐字符一致 |
 | 数据权限 | `ask_domain.perm_json` / `ask_assistant.perm_json` | 行规则、列脱敏、授权名单都在域配置里；引擎在渲染 SQL 时注入 |
 | 权限判定 | `PermissionGuard` / `AskPermissions` | `PermissionContext{userId, roles, dynamicVars}`；角色从服务端查，不经 HTTP 头 |
-| 兼容端点 | `JeecgCompatAuthController` | `/sys/login` 等，为厂商界面契约而存在；厂商依赖已移除，但这套契约被自研前端沿用 |
+| 兼容端点 | 旧版登录契约 | `/sys/login` 等，为早期界面契约而存在；外部依赖已移除，但这套契约被自研前端沿用 |
 
 **结论**：IAM 不是"从零加一个模块"，而是把上面这四块（用户、组织、角色、登录）**搬出去并升级**，同时把 `perm_json` 的授权部分收敛进来。迁移必须逐块替换，不能一次改完。
 

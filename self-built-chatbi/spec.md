@@ -140,7 +140,7 @@ Type: spec
 
 | 表 | 说明 | 对应厂商表 |
 |---|---|---|
-| `ask_datasource` | 数据源 | `jimu_report_data_source` |
+| `ask_datasource` | 数据源 | 第三方产品的数据源表 |
 | `ask_table_meta` | 表元数据（同步 + 人工） | `vendor_table_meta` |
 | `ask_domain` | 语义域 | `vendor_domain` |
 | `ask_domain_table` | 域内注册表 | `vendor_table` |
