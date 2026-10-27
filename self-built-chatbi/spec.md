@@ -1,11 +1,11 @@
-# PRD：自研问数与语义层，替换 JimuChatBI
+# PRD：自研问数与语义层，替换 第三方 BI 产品
 
 Status: draft
 Type: spec
 
 ## 1. 背景与动机
 
-`docs/adr/0001` 决定**集成** JimuChatBI 承担语义层、NL2SQL、数据源适配与图表展现，本项目只自建治理层。该决策基于两个前提，其中第二个在本轮排查中已被证伪。
+`docs/adr/0001` 决定**集成** 第三方 BI 产品 承担语义层、NL2SQL、数据源适配与图表展现，本项目只自建治理层。该决策基于两个前提，其中第二个在本轮排查中已被证伪。
 
 **前提一：自研同路径需 6–9 个月，NL2SQL 准确率无确定工期。** 仍然成立，本 PRD 不否认这一点。
 
@@ -14,7 +14,7 @@ Type: spec
 | 事项 | 实测结果 |
 |---|---|
 | 源码 | 三个 `-sources.jar` 均为**空壳**，只有 `README.md`，无一行 Java |
-| 字节码 | **混淆**：`org/jeecg/modules/chat2bi/a/b.class`，方法名为 `a()`/`b()` |
+| 字节码 | **混淆**：`org/vendor/modules/chat2bi/a/b.class`，方法名为 `a()`/`b()` |
 | 页面模板 | **加密**：`META-INF/.templates/*` 为高熵密文，明文检索 `needLogin` 零命中 |
 | 前端 JS | **明文可读**，且可被本项目 `static/` 覆盖（已实测验证） |
 
@@ -22,13 +22,13 @@ Type: spec
 
 这直接推翻了一个隐含假设——"集成省下的工作量可以在治理层自由扩展"。实际是：任何厂商侧的行为缺陷（本轮就撞到两个：失效 token 导致页面永久卡死、连接测试无登录超时）都**无法修复**，只能绕过或提 issue。
 
-**同时暴露的第三个问题：许可证未决。** `docs/adr/0001` 已记录：JimuChatBI 仓库声明 AGPL-3.0，但 POM 的 `<licenses>` 写的是"功能可以免费用"——不是许可证标识符。自研可彻底移除这项不确定性。
+**同时暴露的第三个问题：许可证未决。** `docs/adr/0001` 已记录：第三方 BI 产品 仓库声明 AGPL-3.0，但 POM 的 `<licenses>` 写的是"功能可以免费用"——不是许可证标识符。自研可彻底移除这项不确定性。
 
 ## 2. 目标与非目标
 
 ### 目标
 
-用 `agentscope-java 2.0.4` + `Spring Boot 4.1` 自研一套**完整可用**的问数系统，覆盖 JimuChatBI 当前已实现的全部能力：
+用 `agentscope-java 2.0.4` + `Spring Boot 4.1` 自研一套**完整可用**的问数系统，覆盖 第三方 BI 产品 当前已实现的全部能力：
 
 1. 管理数据源
 2. 语义数据表
@@ -38,7 +38,7 @@ Type: spec
 
 ### 非目标
 
-- **不在本期决定如何切换。** 现有 JimuChatBI 集成保持原样不动，新模块独立建库建表并行存在。切换方式另出 ADR。
+- **不在本期决定如何切换。** 现有 第三方 BI 产品 集成保持原样不动，新模块独立建库建表并行存在。切换方式另出 ADR。
 - **首版支持五种数据源，不追求一次做全。** MySQL / Doris / PostgreSQL / Oracle(12c+) / SQL Server。
   方言层按可扩展设计，但接口保持薄——后续新增库时再增厚（见 §8.1）。
 - **不追求问数准确率一步到位。** 见 §10 分阶段：先跑通管道，再迭代准确率。
@@ -136,24 +136,24 @@ Type: spec
 
 ## 6. 数据模型
 
-新建库表，**前缀 `ask_`**，与厂商的 `chat2bi_*` 完全隔离（便于并行运行与回退）。
+新建库表，**前缀 `ask_`**，与厂商的 `vendor_*` 完全隔离（便于并行运行与回退）。
 
 | 表 | 说明 | 对应厂商表 |
 |---|---|---|
 | `ask_datasource` | 数据源 | `jimu_report_data_source` |
-| `ask_table_meta` | 表元数据（同步 + 人工） | `chat2bi_table_meta` |
-| `ask_domain` | 语义域 | `chat2bi_domain` |
-| `ask_domain_table` | 域内注册表 | `chat2bi_table` |
-| `ask_topic` | 查询主题 | `chat2bi_topic` |
-| `ask_term` | 业务术语 | `chat2bi_term` |
-| `ask_assistant` | 助理 | `chat2bi_assistant` |
-| `ask_conversation` | 会话 | `chat2bi_conversation` |
-| `ask_message` | 消息 | `chat2bi_message` |
+| `ask_table_meta` | 表元数据（同步 + 人工） | `vendor_table_meta` |
+| `ask_domain` | 语义域 | `vendor_domain` |
+| `ask_domain_table` | 域内注册表 | `vendor_table` |
+| `ask_topic` | 查询主题 | `vendor_topic` |
+| `ask_term` | 业务术语 | `vendor_term` |
+| `ask_assistant` | 助理 | `vendor_assistant` |
+| `ask_conversation` | 会话 | `vendor_conversation` |
+| `ask_message` | 消息 | `vendor_message` |
 | `ask_audit_log` | 审计（已存在，复用） | — |
 
 字段设计以厂商 schema 为**参考而非契约**——它的注释里已经暴露了几个我们应当修正的地方：
 
-- `chat2bi_table_meta.db_source_type` 用字符串枚举（`db_source`/`api_source`/...），我们只做 JDBC，应简化为外键 + 类型
+- `vendor_table_meta.db_source_type` 用字符串枚举（`db_source`/`api_source`/...），我们只做 JDBC，应简化为外键 + 类型
 - `perm_json` 把所有权限塞进一个 JSON blob，**无法建索引、无法约束**。新设计建议拆成 `ask_domain_grant`（授权）、`ask_row_rule`、`ask_col_rule` 三张表
 - 厂商所有表都有 `tenant_id`，但本项目单租户（见 `ChatbiTokenService.getTenantId()` 返回 null），新表**不加**该列
 
@@ -353,7 +353,7 @@ question
 | 结构化输出 | `call(msgs, DslRecord.class, ctx)` + `Msg.getStructuredData(...)`；模型不支持时自动降级为合成工具 `generate_response` | **DSL 用 Jackson record 定义，不靠解析自由文本** —— 这是 §8「DSL 是检查点」得以成立的前提 |
 | 会话记忆 | `Memory` **自 2.0.0 起废弃**；改用 `AgentStateStore`，按 `(userId, sessionId)` 自动存取。实现有 InMemory / JsonFile / Redis / **Mysql / Jdbc** | 多轮追问用 `MysqlAgentStateStore`（本项目已有 MySQL，Redis 模块目前是空的） |
 | 人在回路 | 工具规则设 `PermissionBehavior.ASK` → `call()` 提前返回，调用方回填 `ConfirmResult` 再 call；或 `ToolBase.externalTool(true)` + `RequireExternalExecutionEvent` | **FR-5.6 澄清追问可直接落地** |
-| 模型接入 | **OpenAI 兼容是唯一入口**：`OpenAIChatModel.builder().baseUrl().apiKey().modelName()` | 可直接复用现有 `jeecg.jmreport.ai.base-url`（火山方舟 ark），**无 ark 专用模块** |
+| 模型接入 | **OpenAI 兼容是唯一入口**：`OpenAIChatModel.builder().baseUrl().apiKey().modelName()` | 可直接复用现有 `vendor.jmreport.ai.base-url`（火山方舟 ark），**无 ark 专用模块** |
 | Spring Boot | `agentscope-spring-boot-starter` 的 `AgentscopeAutoConfiguration` | **默认 bean 不设 stateStore**，生产必须自建 bean |
 
 **没有现成的 NL2SQL 工具。** 全库检索 `text2sql|nl2sql|schema introspect` 零命中；`agentscope-extensions-{jdbc,mysql,postgresql}` 是 **state 存储**，不是 Tool。最接近的蓝本是示例工程 `agentscope-examples/agents/agentscope-dataagent` 的 `DataAgentToolkit`，提供 4 个 `@Tool`：`list_data_sources`、`describe_table`、`run_sql_preview`（仅 SELECT/WITH、行上限 200、30s 超时）、`render_chart`。**SQL 由模型自己写，没有独立生成器。**
@@ -362,7 +362,7 @@ question
 
 ### 模型接入的具体配法
 
-火山方舟（现有 `jeecg.jmreport.ai.base-url` 指向 `ark.cn-beijing.volces.com/api/coding/v3`）走 OpenAI 兼容栈：
+火山方舟（现有 `vendor.jmreport.ai.base-url` 指向 `ark.cn-beijing.volces.com/api/coding/v3`）走 OpenAI 兼容栈：
 
 ```java
 OpenAIChatModel.builder()
@@ -498,7 +498,7 @@ OpenAIChatModel.builder()
 | SQL Server 驱动版本旧 | 中 | 本地仅 7.4.1.jre8（2019）。连新版 SQL Server 是否正常未验证，P1 需实测 |
 | 权限实现出错导致数据泄露 | **高** | 默认拒绝；启动校验；用 FR-5.5 的 recompute 做确定性回归测试 |
 | 前端从零写（**已决**：新写 Vue 页面） | 中 | 厂商前端 JS 是明文，可参考交互与信息架构，但不可复制模板；需按 P1 工期单列前端工作量 |
-| 与现有 JimuChatBI 并行导致两套语义模型漂移 | 中 | 本期明确不切换；若要切，需先定迁移方案 |
+| 与现有 第三方 BI 产品 并行导致两套语义模型漂移 | 中 | 本期明确不切换；若要切，需先定迁移方案 |
 
 ## 11. 未决事项
 
