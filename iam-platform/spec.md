@@ -6,8 +6,8 @@
 
 ## 0. 结论先行
 
-1. **新建 `chatdata-agent-iam`**：独立部署的认证与权限中心，拥有用户、组织、角色、权限、数据策略、渠道身份绑定。它有自己的库，不 join 业务库。
-2. **网关成为唯一入口**：`chatdata-agent-gateway` 从空壳变成 Spring Cloud Gateway，负责路由、令牌内省/会话校验、限流、CORS、渠道回调入口与静态前端。
+1. **新建 `chatdata-identity-service`**：独立部署的认证与权限中心，拥有用户、组织、角色、权限、数据策略、渠道身份绑定。它有自己的库，不 join 业务库。
+2. **网关成为唯一入口**：`chatdata-gateway` 从空壳变成 Spring Cloud Gateway，负责路由、令牌内省/会话校验、限流、CORS、渠道回调入口与静态前端。
 3. **IAM 是权限的事实来源，引擎仍是行级/列级权限的执行点**。这一条是硬约束（ADR-0002）：策略可以集中存储，但把谓词拼进 SQL 必须留在 `AskSqlRenderer`，不能挪到 IAM 或网关。
 4. **认证与授权走 OAuth 2.1 + Spring Security，但令牌是"不透明引用令牌"而不是 JWT**：授权记录落 MySQL（Spring Authorization Server 的 `oauth2_authorization`），会话与内省缓存落 Redis；资源服务器通过 RFC 7662 内省校验。**不再自研 HMAC 令牌，也不签发 JWT access token**。
 5. **Web 采用 BFF 模式**：浏览器只拿 HttpOnly 会话 Cookie（Spring Session + Redis），令牌由网关持有并附加到上游请求；浏览器里没有 access token，XSS 拿不到。
@@ -18,7 +18,7 @@
 
 ### 目标
 
-- `chatdata-agent-ask` 不再拥有用户表、密码、角色表与登录逻辑。
+- `chatdata-query-service` 不再拥有用户表、密码、角色表与登录逻辑。
 - 一套身份同时服务：Web、开放 API、微信/飞书/钉钉渠道。
 - 组织架构是一等公民：用户属于组织（可多属），角色可授到人也可授到组织，数据范围沿组织树继承。
 - 权限有统一的管理面与审计：谁在什么时候把什么权限给了谁。
@@ -34,8 +34,8 @@
 
 | 能力 | 现在在哪 | 关键事实 |
 |---|---|---|
-| 网关 | `chatdata-agent-gateway` | **空壳**：只有 pom 与 target，没有路由代码 |
-| 登录 | `chatdata-agent-ask/.../auth` | 自研 HMAC 令牌（`LoginTokenService`），不是 JWT；验证码在内存 Map |
+| 网关 | `chatdata-gateway` | **空壳**：只有 pom 与 target，没有路由代码 |
+| 登录 | `chatdata-query-service/.../auth` | 自研 HMAC 令牌（`LoginTokenService`），不是 JWT；验证码在内存 Map |
 | 用户 | `chatdata_user` 表 | 临时方案，ADR-0005 明确"SSO 落地后整体删除" |
 | 组织 | `chatdata_user.org_code` 单列 | 只支持"一人一组织"，且只是给动态行规则取值的字符串 |
 | 角色 | `sys_role` / `sys_user_role` + `RoleService` | 角色码是字符串，必须与 `perm_json` 里的 `rowRules[].role` 逐字符一致 |
@@ -50,14 +50,14 @@
 ```
                     ┌────────────────────────────────────────────┐
    Web (Vue)  ─────▶│                                            │
-   开放 API   ─────▶│   chatdata-agent-gateway                   │
+   开放 API   ─────▶│   chatdata-gateway                   │
    微信/飞书/钉钉 ──▶│   · 路由 / TLS / CORS / 限流 / 请求 ID       │
                     │   · 不透明令牌内省 / BFF 会话（尽早拒绝）    │
                     │   · 渠道回调入口（签名由 adapter 校验）        │
                     └───────┬───────────────┬────────────────────┘
                             │               │
                   ┌─────────▼──────┐   ┌────▼─────────────────────┐
-                  │ chatdata-      │   │ chatdata-agent-ask        │
+                  │ chatdata-      │   │ chatdata-query-service        │
                   │ agent-iam      │   │ · 问数编排 / SSE / 审计    │
                   │ · 用户/组织     │   │ · 通过 iam-client 取主体   │
                   │ · 角色/授权     │   │   与有效数据策略           │
@@ -84,14 +84,14 @@
 
 | Maven 模块 | 类型 | 职责 |
 |---|---|---|
-| `chatdata-agent-iam` | 可执行 Spring Boot 应用 | 认证、用户、组织、角色、授权、数据策略、渠道绑定、审计 |
-| `chatdata-agent-iam-web` | Vue 3 + Vite 前端 | 登录页、用户/组织/角色管理。构建产物放进 IAM 的静态资源目录，与 `chatdata-agent-web → chatdata-agent-ask` 一致 |
-| `chatdata-agent-iam-client` | 库 | 给 ask/channel worker 用：令牌内省与缓存、`Principal`、策略查询 + 缓存 |
-| `chatdata-agent-gateway` | 可执行应用（Spring Cloud Gateway） | 唯一入口、路由、限流、静态前端、渠道 webhook 转发 |
+| `chatdata-identity-service` | 可执行 Spring Boot 应用 | 认证、用户、组织、角色、授权、数据策略、渠道绑定、审计 |
+| `chatdata-identity-web` | Vue 3 + Vite 前端 | 登录页、用户/组织/角色管理。构建产物放进 IAM 的静态资源目录，与 `chatdata-web → chatdata-query-service` 一致 |
+| `chatdata-identity-client` | 库 | 给 ask/channel worker 用：令牌内省与缓存、`Principal`、策略查询 + 缓存 |
+| `chatdata-gateway` | 可执行应用（Spring Cloud Gateway） | 唯一入口、路由、限流、静态前端、渠道 webhook 转发 |
 | `chatdata-agent-channel-spi` | 库 | 渠道统一接口：验签、解析、回复、身份解析 |
 | `chatdata-agent-channel-feishu` / `-wecom` / `-dingtalk` | 可执行 worker | 各自厂商 SDK 的隔离层，独立伸缩 |
-| `chatdata-agent-ask` | 现有应用 | 去掉 `auth/**` 与用户/角色表依赖，改用 `iam-client` |
-| `chatdata-agent-ask-engine` | 现有库 | 保持权限执行点；`PermissionContext` 由宿主用 IAM 主体构造 |
+| `chatdata-query-service` | 现有应用 | 去掉 `auth/**` 与用户/角色表依赖，改用 `iam-client` |
+| `chatdata-query-engine` | 现有库 | 保持权限执行点；`PermissionContext` 由宿主用 IAM 主体构造 |
 
 > 为什么不把 IAM 做成 ask 的一个模块：用户组织与渠道身份是**跨产品**能力；放在 ask 里会让下一个产品再抄一遍登录与角色。独立部署也便于单独扩容与审计。
 
@@ -302,7 +302,7 @@ OAuth2TokenSettings.builder()
 
 ### 6.6.1 IAM 自身的登录（前后端分离）
 
-IAM 与 `chatdata-agent-ask` 一样采用前后端分离：`chatdata-agent-iam-web`（Vue 3 + Vite）构建到 IAM 的 `static/app`，由 IAM 自己提供静态资源。**不使用服务端模板（Thymeleaf）。**
+IAM 与 `chatdata-query-service` 一样采用前后端分离：`chatdata-identity-web`（Vue 3 + Vite）构建到 IAM 的 `static/app`，由 IAM 自己提供静态资源。**不使用服务端模板（Thymeleaf）。**
 
 授权码流程中的"未登录"处理：
 
@@ -607,7 +607,7 @@ public interface ChannelAdapter {
 - 建库与表；导入现有 `chatdata_user` / `sys_role` / `sys_user_role` / `org_code`。
 - 引入 Spring Authorization Server：授权码 + PKCE、客户端凭证、刷新轮换、撤销、官方三张表；**access token 使用 `OAuth2TokenFormat.REFERENCE`（不透明）**。
 - 自定义登录页（密码 + 验证码）、`OAuth2TokenCustomizer` 补充 tenant/roles/org 属性（内省时返回）。
-- **`chatdata-agent-iam-web`**：Vue 3 + Vite 的登录页与管理台，构建到 IAM 的 `static/app`；登录走 `POST /iam/auth/login` 建会话，再回 `/oauth2/authorize`。**不用 Thymeleaf。**
+- **`chatdata-identity-web`**：Vue 3 + Vite 的登录页与管理台，构建到 IAM 的 `static/app`；登录走 `POST /iam/auth/login` 建会话，再回 `/oauth2/authorize`。**不用 Thymeleaf。**
 - 会话与内省缓存接 Redis；吊销走"删授权记录 + Pub/Sub 广播"。
 - IAM 实现 `/sys/**` 兼容端点（内部走同一套授权服务），现有前端零改动可继续登录。
 - 管理 API 与最小管理页（用户/组织/角色/客户端）。
@@ -690,13 +690,13 @@ public interface ChannelAdapter {
 | 租户模型 | **短期只有 1 个租户** | IAM 表带 `tenant_id`、默认 `t_default`；不做租户切换 UI；网关/ask 校验令牌 tenant 与部署配置一致；ask 多租户后置 |
 | SSO 现状 | **有飞书，但暂无应用权限** | P0–P3 本地账号为主；预留 `external_id` 与 OIDC 适配；飞书权限到位后做免登 + 通讯录同步，角色仍由 IAM 分配 |
 | 数据策略归属 | **策略存 IAM、执行在引擎** | IAM 提供有效策略接口；`PermissionGuard`/`AskSqlRenderer` 判据不变；缓存 + fail-closed；迁移期双读校验 |
-| IAM 前端形态 | **前后端分离（Vue 3 + Vite）** | 新增 `chatdata-agent-iam-web`；登录走 JSON 接口建会话再回授权码流程；不用 Thymeleaf |
+| IAM 前端形态 | **前后端分离（Vue 3 + Vite）** | 新增 `chatdata-identity-web`；登录走 JSON 接口建会话再回授权码流程；不用 Thymeleaf |
 
 ## 18. P0 实施进度（2026-10-20）
 
 ### 已完成并实测通过
 
-- `chatdata-agent-iam` 模块：Spring Boot 4.1 + Spring Security 7 + Spring Authorization Server 7.1。
+- `chatdata-identity-service` 模块：Spring Boot 4.1 + Spring Security 7 + Spring Authorization Server 7.1。
 - 库表：`sql/iam/01-schema.sql`（IAM 表 + 授权服务器官方三张表）、`02-seed-dev.sql`、`03-migrate-from-ask.sql`。
 - 授权服务器：授权码 + PKCE、客户端凭证、刷新轮换、撤销、内省；**access token 为 `reference`（不透明）**，已在 `oauth2_registered_client.token_settings` 中确认。
 - 会话与 CSRF：Spring Session + Redis；`GET /iam/auth/csrf` 下发 `XSRF-TOKEN`。
@@ -720,7 +720,7 @@ public interface ChannelAdapter {
 - **管理 API**：`/iam/admin/users`（列表/详情/新建/更新/重置密码/分配角色）、
   `/iam/admin/orgs`（列表/新建/更新）、`/iam/admin/roles`（列表/新建/更新）。
   鉴权在过滤链上（`/iam/admin/**` 需 `ROLE_chat2bi`），异常经 `@RestControllerAdvice` 映射为 400/500。
-- **`chatdata-agent-iam-web`**：Vue 3 + Vite，登录页 + 用户/组织/角色三页；
+- **`chatdata-identity-web`**：Vue 3 + Vite，登录页 + 用户/组织/角色三页；
   构建到 IAM 的 `static/app`，`WebAppForwardController` 处理深链接。
 - 实测（脚本 + 浏览器）：
   - 管理 API：建用户（绑组织 + 授角色）、不存在的角色码被拒、重名被拒、覆盖式改角色、
@@ -738,7 +738,7 @@ public interface ChannelAdapter {
 
 ### P1 阶段一：网关已立起来（2026-10-21）
 
-- `chatdata-agent-gateway`：Spring Cloud Gateway 5.0.2（Boot 4 对应版本；
+- `chatdata-gateway`：Spring Cloud Gateway 5.0.2（Boot 4 对应版本；
   根 pom 补上了此前只定义属性、未导入的 Spring Cloud BOM）。
 - **路由**：`/iam/**`、`/oauth2/**`、`/.well-known/**`、`/login`、`/captcha/**` → IAM；
   `/app/**`、`/sys/**`、`/api/ask/**`、`/api/engine/**` → ask；`/bff/**` → 网关自身。
@@ -765,7 +765,7 @@ public interface ChannelAdapter {
 
 ### P1 阶段二：ask 切成资源服务器（2026-10-21）
 
-- **新增 `chatdata-agent-iam-client`**：`IamIntrospector` 用 IAM 的 `/iam/principal`
+- **新增 `chatdata-identity-client`**：`IamIntrospector` 用 IAM 的 `/iam/principal`
   把不透明令牌换成主体（含角色与组织），Redis 缓存 30 秒（key 是令牌的 SHA-256，
   不落明文）；**拿不到就拒绝**，绝不回落成放行。缓存编码用分隔符而不是 JSON——
   Boot 4 的 classpath 是 Jackson 3，而这个库要被 servlet 与 reactive 服务共用，
@@ -825,7 +825,7 @@ public interface ChannelAdapter {
 mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS chatdata_iam DEFAULT CHARSET utf8mb4"
 mysql -uroot -proot chatdata_iam < sql/iam/01-schema.sql
 mysql -uroot -proot chatdata_iam < sql/iam/02-seed-dev.sql
-cd chatdata-agent-iam && . ~/.chatdata-agent.env && mvn spring-boot:run   # 端口 9000
+cd chatdata-identity-service && . ~/.chatdata-agent.env && mvn spring-boot:run   # 端口 9000
 ```
 
 环境变量：`IAM_BFF_SECRET`、`IAM_RESOURCE_SECRET`（已加入 `~/.chatdata-agent.env`），
@@ -878,8 +878,8 @@ P2 的三条验收此前只有一条半成立：**「失效 < 1 分钟」不达�
 用法（有差异非零退出，可当 CI 门禁）：
 
 ```bash
-mvn -q -pl chatdata-agent-ask-engine -am install -DskipTests
-mvn -pl chatdata-agent-ask spring-boot:run -Dspring-boot.run.profiles=policycheck
+mvn -q -pl chatdata-query-engine -am install -DskipTests
+mvn -pl chatdata-query-service spring-boot:run -Dspring-boot.run.profiles=policycheck
 ```
 
 **③ 助理策略接线**
@@ -944,7 +944,7 @@ mysql -uroot -p chatdata_iam < sql/iam/08-bootstrap.sql
 # 2) 建第一个管理员账号（密码走环境变量，不写进脚本）
 BOOTSTRAP_ADMIN_USERNAME=admin \
 BOOTSTRAP_ADMIN_PASSWORD='一次性强密码' \
-mvn -pl chatdata-agent-iam spring-boot:run -Dspring-boot.run.profiles=bootstrap-admin
+mvn -pl chatdata-identity-service spring-boot:run -Dspring-boot.run.profiles=bootstrap-admin
 ```
 
 运行器是幂等的：用户已存在时**保留其密码不动**（要改密码需显式
@@ -1008,7 +1008,7 @@ mvn -pl chatdata-agent-iam spring-boot:run -Dspring-boot.run.profiles=bootstrap-
 
 **清理（已做）**
 
-- 删除 `chatdata-agent-common-security` 模块（`RoleService` / `SysRoleMapper` /
+- 删除 `chatdata-common-security` 模块（`RoleService` / `SysRoleMapper` /
   `SysUserRoleMapper` 与其 Testcontainers 测试）及根/聚合 pom 里的声明；连带删除
   `sql/01-role.sql`、`sql/02-role-seed.sql`（仅那个模块的集成测试在用）。
 - `EngineStartupCheckRealDbTest` 的种子角色改从 `chatdata_iam.iam_role` 读——此前读

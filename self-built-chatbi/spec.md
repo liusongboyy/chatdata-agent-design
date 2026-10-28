@@ -220,7 +220,7 @@ Type: spec
 ### 模块划分
 
 ```
-chatdata-agent-ask-engine/          ← 新增
+chatdata-query-engine/          ← 新增
   ├── datasource/                   数据源 + 连接池 + 驱动校验
   ├── meta/                         元数据同步（JDBC DatabaseMetaData）
   ├── semantic/                     语义域 / 注册表 / 主题 / 术语
@@ -299,7 +299,7 @@ PostgreSQL 折成 `region`、Oracle 折成 `REGION`、MySQL 保持 `Region`。
 **新写 Vue 页面**（已决）。不复用厂商前端，也不走 `static/` 覆盖。
 
 - 厂商前端 JS 是**明文可读**的，可作为交互与信息架构的参考（四块管理面的功能清单已从其 JS 中枚举出来，见 PRD 修订记录），但**模板加密，不可复制**。
-- 现有 `chatdata-agent-ask` 里已有 `AskStreamController` 等自建端点，前端可与其直接对接，无需再适配厂商的响应形状。
+- 现有 `chatdata-query-service` 里已有 `AskStreamController` 等自建端点，前端可与其直接对接，无需再适配厂商的响应形状。
 **技术选型（已决）：Vue 3。**
 
 - 厂商用的是 Vue 2.7 + iView 4.7（从其 `static/` 依赖可读出）。**Vue 2 已于 2023-12-31 停止维护**，新写没有理由再上 Vue 2。

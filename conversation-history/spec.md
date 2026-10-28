@@ -142,7 +142,7 @@ LIKE 中 `%`/`_`/`!` 转义。
   - 标题截断、seq 递增、软删除后列表不可见。
 - 手工联调：新会话 → 连续追问 → 刷新页面 → 历史列表出现并按时间倒排 →
   搜索命中标题/正文 → 分页 → 回放结果与 SQL → 删除。
-- `npm run typecheck` + `npm run build`（chatdata-agent-web）。
+- `npm run typecheck` + `npm run build`（chatdata-web）。
 
 ## 8. 已知取舍 / 后续
 
