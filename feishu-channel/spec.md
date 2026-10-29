@@ -1,6 +1,6 @@
 # 飞书 Channel：把问数接入 IM 与后续多渠道抽象
 
-- Status: Draft
+- Status: Implemented（核心链路已上线，见文末「实施状态」）
 - Date: 2026-10-28
 - Related: `docs/adr/0002-data-permission-enforcement-point.md`、`docs/adr/0008-iam-oauth21-opaque-tokens.md`、`docs/adr/0010-module-owned-data-policies.md`、`.scratch/iam-platform/spec.md`、`.scratch/conversation-history/spec.md`
 
@@ -721,3 +721,27 @@ channel:
 | 会话空闲 | **60 分钟** |
 | SQL 展示 | `collapsible_panel`，默认收起，所有人可展开；不需要服务端回调 |
 | `channel_user` | 用 username（单租户够用；多租户时改 `(tenant, username)`） |
+
+
+---
+
+## 实施状态（2026-10-29 更新）
+
+已在真实飞书环境跑通。与本文最初的设想有几处不一致，**以代码与
+`docs/feishu-channel-setup.md` 为准**，这里只记差异：
+
+| 项 | 本文写的 | 实际实现 / 修正原因 |
+|---|---|---|
+| 去重窗口 | Redis 10 分钟 | **表 + 24 小时**。飞书最晚一次重推在 6 小时后，10 分钟会让它被当成新消息 |
+| url_verification 的位置 | 排在验签之后 | **最先，且要先解密**。飞书这个请求不带签名头；配了 Encrypt Key 后连它都是加密的 |
+| 助理 | 未讨论 | **必须显式选**。不指定会落到「第一个启用中的域」（保险域），问门店的问题答非所问 |
+| 长结果 | 「查看完整结果」链接 | **卡片内分页**。ask 最多 1000 行，落 `channel_answer` 表，翻页走卡片回调 |
+| 反馈 | 未讨论 | 已实现「有用/答错」，走 `card.action.trigger` 回调，提交到现有 `/api/ask/feedback` |
+
+新增的、本文没设计的内容：
+
+- **能力询问识别**：「你能问哪些数据」不是数据问题，拦下来走 `/api/ask/capabilities`
+- **深入分析命令**（`#分析 <问题>`）：走 ask 的分析编排
+- **助理选择命令**（`#助手 N`）
+
+仍未实现：定时推送、占位卡片原地更新、「我的账号」解绑页、钉钉/企微。
