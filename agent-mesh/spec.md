@@ -383,20 +383,50 @@ mesh:
 **这是最容易配错的一处**：注册到 Nacos 的地址如果写 `127.0.0.1`，
 其他机器上的 agent 拿到这个地址后连的是它自己。表现为「注册成功但调用失败」。
 
-### 8.2 Nacos 3.x
+### 8.2 Nacos 3.x —— 已实测通过（2026-10-30）
 
-Nacos 3.x 的 A2A 注册走 `AiService`（`com.alibaba.nacos.api.ai`）。
-需要确认 `nacos-client` 的版本与 3.x 服务端兼容——**这是未决项**（§11）。
+**结论：`nacos-client 3.2.1-2026.03.30` + `Nacos 3.2.3` + `agentscope 2.0.4` 全部兼容。**
 
-本地用 docker 起 Nacos 验证：
+验证方式与结果：
+
+| 步骤 | 结果 |
+|---|---|
+| `NamingService.getServerStatus()` | `UP` |
+| `NacosAgentRegistry.builder(props).build()` | `registryName = Nacos` |
+| `registry.register(card, transports)` | 成功 |
+| `NacosAgentCardResolver.getAgentCard("chatdata-ask")` | 读回 name/description/url/skills 全对 |
+
+#### 端口：3.x 与 2.x 不一样
+
+| 容器内 | 用途 | 本地映射 |
+|---|---|---|
+| 8080 | **新控制台**（3.x 新增） | 18080 |
+| 8848 | 老 HTTP API（v1 已移除，`/nacos/v1/...` 返回 404） | 18848 |
+| 9848 | gRPC = 8848 + 1000 | 19848 |
+| 9849 | gRPC（集群） | 19849 |
+
+**`SERVER_ADDR` 要写 `127.0.0.1:18848`**（映射后的主端口）。
+客户端会自动用「主端口 + 1000」连 gRPC，所以 19848 必须映射到 19848，
+否则报「连接超时」——而那个错误看不出是端口问题。
+
+> 3.x 的 `/nacos/v1/console/health/readiness` 已不存在。
+> 想看服务端状态去 18080 的控制台，不要按 2.x 的习惯拼 v1 路径。
+
+#### 三个 API 细节（凭印象会写错）
+
+| 项 | 实际 | 说明 |
+|---|---|---|
+| 创建注册器 | `NacosAgentRegistry.builder(Properties)` | `NacosFactory.createAiService()` **不存在**——不要自己造 AiService |
+| `TransportProperties` 签名 | `(transport, host, Integer port, path, supportTls, Map<String,Object> extra)` | 协议（http）放在最后的 Map 里，不是独立参数 |
+| AgentCard 构造 | `new AgentCard.Builder()...build()` | 字段名：`preferredTransport` / `capabilities(AgentCapabilities)` / `skills` |
+
+本地起 Nacos 3.x：
 
 ```bash
-docker run -d --name nacos -p 8848:8848 -p 9848:9848 \
-  -e MODE=standalone nacos/nacos-server:v3.0.0
+docker run -d --name nacos \
+  -p 18080:8080 -p 18848:8848 -p 19848:9848 \
+  -e MODE=standalone nacos/nacos-server:v3.2.3
 ```
-
-> 9848 是 3.x 的 gRPC 端口（8848 + 1000），漏了它客户端连不上——
-> 而报错信息通常只说"连接超时"，看不出是端口问题。
 
 ### 8.3 命名空间与分组
 
@@ -456,7 +486,7 @@ docker run -d --name nacos -p 8848:8848 -p 9848:9848 \
 |---|---|
 | **白名单只是软校验** | 明确它不是安全边界；真正的边界是用户的授权表。上 mTLS 或网关认证列入后续 |
 | **用户不看清楚就点授权** | 授权页写明「数据范围与你本人相同」；agent 名称来自 Nacos 注册的 AgentCard，不让 agent 自报 |
-| **Nacos 3.x 与 nacos-client 版本兼容性** | 未验证。第一步就用 docker 起 3.x 实测，不通则降级到 2.x 或升级 client |
+| ~~Nacos 3.x 与 nacos-client 版本兼容性~~ | **已验证通过**（2026-10-30，见 §8.2） |
 | 注册地址写成 127.0.0.1 | `advertised-host` 必须可配，且部署时检查 |
 | agent 名字由 agent 自己声明，可能骗用户点授权 | 缓解靠 Nacos 侧的管理员审核流程（不在本期）；记录为已知薄弱点 |
 | AgentCard 静态配置与库里数据域不同步 | 可接受。加域时改配置重启 |
@@ -464,7 +494,7 @@ docker run -d --name nacos -p 8848:8848 -p 9848:9848 \
 
 ### 待确认
 
-1. **Nacos 3.x 的版本具体是哪个**（3.0.0 / 3.1.x）？影响 client 选型。
+1. ~~Nacos 3.x 的版本具体是哪个~~ → **3.2.3**，已实测（§8.2）。
 2. **授权表先给谁一条记录**？建议先手工插一条 `(admin, report-bot)` 验证链路。
 3. **agentscope service 的管理台**需要 AgentCard 里哪些字段才能正确展示？本 spec 按 A2A 标准写，可能需要按管理台要求补。
 
