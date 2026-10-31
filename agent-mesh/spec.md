@@ -504,3 +504,123 @@ docker run -d --name nacos \
 - **feishu-channel/spec.md**：`ProxyTokenService` 与 `ChannelTokenService` 同构，是刻意的重复
 - **ADR-0002**（权限执行点）：本 spec **不新增权限判定点**。授权表管的是"能否被代理"的准入，
   不是"能看哪些数据"——后者仍只在 ask 里判
+
+## 13. aistio：接入 agentscope service 管理台（2026-10-31 补）
+
+### 13.1 为什么要单独一条通道
+
+Nacos + A2A 解决「别的 agent 怎么发现并调用我」。它不解决「人在管理台上看到我、对我发一句话、
+让我被编排成工作流的一步」。后者是 agentscope service 的 aistio 控制面提供的，两条通道互不替代：
+
+| 通道 | 作用 | 关掉的影响 |
+|---|---|---|
+| Nacos + A2A | 其他 agent 发现并调用 | 互相发现不了；本进程照常服务已有调用方 |
+| aistio | 管理台可见、可对话、可编排 | 管理台看不到；A2A 照常 |
+
+所以 `mesh.aistio.enabled=false` 不影响 `mesh.a2a.*`，反之亦然。
+
+### 13.2 为什么不用 `AgentScopeAdapter`
+
+`agentscope-extensions-aistio` 自带的适配器要求 `target instanceof Agent`（真的 `ReActAgent`）。
+mesh 是**转发器**：收请求 → 换令牌 → 调 ask → 返回。没有 agent 循环、没有模型、没有工具。
+
+硬造一个假 `ReActAgent` 会让 mesh 多一层无意义的模型调用——管理台问一句，我们先生成一句再转发，
+既慢又会让「模型额度用完」这种错误凭空出现。
+
+所以实现 SDK 的 `FrameworkAdapter`（只有 4 个必实现方法），声明 `frameworkName = "chatdata-mesh"`，
+在管理台上标清「我不是 agentscope 原生 agent」。
+
+### 13.3 只声明真做到的能力
+
+`capabilities()` 只返回 `conversation-inbound`（能处理一句话并回答）。
+
+`extractContext()` 返回空 `Mono` —— 不声明 `context-query`。管理台查上下文会得到
+`no context snapshot recorded for this session`，那是**准确**的：mesh 确实没有累积上下文对象，
+每轮都是「拿问题去问一次」。强行拼一个假快照会让管理台展示不存在的东西，比不展示更糟。
+
+SDK 还会自动加 `context-reporting` / `session-reporting`（它自己的契约端点实现的），
+这两个不是我们声明的。
+
+### 13.4 两个端口，不是一个（踩过的坑）
+
+aistio 控制面（`aistiod`，Go 写的）有**两个独立监听**：
+
+| 用途 | 容器内 | 本地映射 |
+|---|---|---|
+| REST API + 控制台 SPA | 8081 | 18081 |
+| ASDP gRPC（数据面长连接） | **15010** | 15010 |
+
+最初我把 `control-plane` 和 `control-plane-http` 写成同一个地址（18081），结果是：
+
+1. HTTP 自注册成功 → 管理台 agent 列表里能看到 `chatdata-ask`
+2. gRPC `Connect` 从没连上 → `/api/v1/dataplanes` 是空的
+3. 管理台发对话 → `503 {"error":"asdp: instance not connected","code":"conversation_unavailable"}`
+
+**排查顺序**（下次直接照这个查）：
+
+```bash
+# ① gRPC 有没有建立长连接 —— 控制面日志里应有 handshake accepted / data plane connected
+docker logs agentscope-service-control-1 --since 5m | grep -i "asdp\|handshake"
+
+# ② 数据面是否注册上了 —— 空数组 = gRPC 没连上
+curl -s -H "Authorization: Bearer $JWT" \
+  "http://127.0.0.1:18081/api/v1/dataplanes?tenant=default&namespace=default"
+```
+
+配置约束：
+
+- `control-plane`（gRPC）**只能填 `host:port`**，带 `http://` 会让 gRPC 的 `NameResolver` 直接报错
+- compose 必须显式映射 `15010:15010`。原 compose 只映射了 `8081`，所以这条最容易漏
+
+### 13.5 回调地址不能用 localhost
+
+控制面要回调 agent 的契约端点（查上下文/历史、推配置）。这些端口注册给控制面的 `baseUrl`
+如果留空，**SDK 会回落到 `http://localhost:<contract-port>`**——control 在容器里，那指向容器自己。
+
+症状：Dashboard 里有 agent、对话能跑、但 Sessions 页永远是空的、`/sessions/:id/context` 里
+的 live fallback 永远打不到。`registeredAt` 正常、`lastSeenAt` 在刷新，唯独回调没到。
+
+所以 `AistioRegistration` **必须显式** `.publicBaseUrl(cfg.getPublicBaseUrl())`，
+默认 `http://host.docker.internal:<contract-port>`。`AistioConfig` 的字段注释写了"empty derives"，
+但它 derive 出来的是 localhost，不是「探测本机 IP」——这一点和直觉不符，需要记住。
+
+### 13.6 管理台对话「代表谁」
+
+A2A 有 `AgentRequestOptions.userId` 说明代表谁；aistio 的 `runConversationTurn(sessionId, content)`
+**没有用户身份**。所以用 `mesh.aistio.default-agent-client` + `default-user` 约定一个默认被代理人。
+
+关键：仍然走完整的「换令牌 → 调 ask」链路，**不绕过权限**。否则管理台就成了能看全部数据的后门，
+而我们建授权表正是为了防这个。默认被代理人也必须在 `iam_agent_grant` 里有授权记录。
+
+### 13.7 已验证（2026-10-31）
+
+```
+控制面 agent 列表：chatdata-ask | active | ["context-reporting","conversation-inbound","session-reporting"]
+数据面：chatdata-ask | healthy | framework=chatdata-mesh | baseUrl=http://host.docker.internal:18090
+实例：MacBook-Pro-4.local | generation=3 | health=healthy
+
+一轮对话（POST /api/v1/chats/{id}/turns）：
+  1 user.message      各门店的订单金额合计
+  2 turn.started
+  3 turn.accepted
+  4 turn.started
+  5 assistant.message 共 4 行（列：门店名称、订单金额）…
+  6 turn.completed
+```
+
+数据本身受被代理人权限约束（行级规则照常生效）。
+
+### 13.8 本地环境的前置改动（不在本 repo 内）
+
+`agentscope service` 的 `docker-compose.yml` 需要加一行端口映射：
+
+```yaml
+control:
+  ports:
+    - "18081:8081"
+    - "15010:15010"   # ASDP gRPC；不映射 = 只能注册、不能对话
+```
+
+`docker/Dockerfile.control` 在国内网络下要改三处（只影响构建期下载，产物不变）：
+npm registry → npmmirror、GOPROXY → goproxy.cn、基础镜像 `gcr.io/distroless` → `alpine`。
+另外 `npm ci` 在慢网络下会跑 8 分钟后以 `Exit handler never called` 自崩，改用 `npm install`。
