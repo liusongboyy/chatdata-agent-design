@@ -646,6 +646,45 @@ control:
     - "15010:15010"   # ASDP gRPC；不映射 = 只能注册、不能对话
 ```
 
-`docker/Dockerfile.control` 在国内网络下要改三处（只影响构建期下载，产物不变）：
-npm registry → npmmirror、GOPROXY → goproxy.cn、基础镜像 `gcr.io/distroless` → `alpine`。
-另外 `npm ci` 在慢网络下会跑 8 分钟后以 `Exit handler never called` 自崩，改用 `npm install`。
+#### 不要在容器里编译 control
+
+`docker compose build control` 原来的三步在慢网络下都不可靠：
+
+| 步骤 | 症状 |
+|---|---|
+| `npm ci` / `npm install` | 跑 8–20 分钟后 npm 自身崩溃：`Exit handler never called!` |
+| `gcr.io/distroless/static:nonroot` | 拉不到（国内网络） |
+| `goproxy.org` | 超时 |
+
+改成**宿主机产出产物，镜像只做 COPY**：
+
+```bash
+cd ~/selfProjects/agentscope-java-2.0.4
+
+# ① 前端。pnpm 装同样的依赖 2 秒，npm 要 20 分钟且会崩
+cd agentscope-service/frontend
+pnpm install && pnpm rebuild esbuild && pnpm run build
+# 产物直接落在 agentscope-service/aistio/ui/（vite 的 outDir 指过去）
+
+# ② 控制面二进制。go.mod 要 1.26，宿主机的 1.21 靠 GOTOOLCHAIN 自动拉
+cd ../aistio
+export GOPROXY=https://goproxy.cn,direct GOTOOLCHAIN=auto
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+  go build -trimpath -ldflags="-s -w" -o ../../.build/aistiod ./cmd/aistiod
+
+# ③ 镜像
+cd ../../agentscope-service && docker compose build control
+```
+
+`Dockerfile.control` 换成只 COPY 的 12 行版本（原件备份在
+`/tmp/Dockerfile.control.dockerbuild.bak`）。
+
+**两处配套改动**，否则 COPY 会报 `not found`：
+
+- 根 `.dockerignore` 里原本排除了 `agentscope-service/aistio/ui`
+  （原设计在容器内构建，产物不该进上下文），本地构建版要注释掉这行
+- `COPY` 路径相对**构建上下文**（repo 根），不是 Dockerfile 所在目录
+
+`pnpm install` 会以 `Ignored build scripts: esbuild` 警告跳过 esbuild 的安装脚本，
+不处理的话 `vite build` 起不来。两件事都要做：`.npmrc` 加
+`onlyBuiltDependencies[]=esbuild`，再 `pnpm rebuild esbuild`。
