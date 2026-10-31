@@ -172,6 +172,31 @@ WHERE username = ? AND agent_client = ? AND revoked_at IS NULL
 > 这条写进 spec 是为了**抵住「我们在内网所以没事」的自我安慰**。
 > 内网横向移动是最常见的攻击路径，而它恰恰是"可信网络"假设失效的地方。
 
+#### `userId` 的位置：`message.metadata`，不是 `params.metadata`
+
+A2A 调用方最容易写错的一处。starter 的 `AgentScopeAgentExecutor.getUserId(Message)` 读的是
+**`params.message.metadata["userId"]`**：
+
+```json
+{
+  "jsonrpc": "2.0", "id": "1", "method": "message/send",
+  "params": {
+    "message": {
+      "kind": "message", "role": "user", "messageId": "...",
+      "metadata": { "userId": "user:report-bot:admin" },
+      "parts": [{"kind": "text", "text": "各门店的订单金额合计"}]
+    }
+  }
+}
+```
+
+写在 `params.metadata`（少一层）的话，`getUserId` 拿到空串，mesh 回一句
+「无法确定代表谁」——**HTTP 200、JSON-RPC 也没 error**，只是内容是一句拒绝。
+排查看 mesh 日志里的 `A2A 调用：... userId=` 是不是空的。
+
+另外 `X-Agent-Client` 这种 HTTP 头没用：starter 在异步线程池上调用 `streamEvents`，
+请求线程的 ThreadLocal 传不过去。客户端标识只能编进 `userId`（`user:<client>:<user>`）。
+
 ### 4.6 完整链路
 
 ```
