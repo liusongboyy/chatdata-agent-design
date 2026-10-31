@@ -286,7 +286,7 @@ skill 的数量不影响架构；等第二个域要暴露时再补。
 ## 6. 模块设计
 
 ```
-chatdata-agent-mesh/                    新模块，独立 Spring Boot 应用
+chatdata-mesh/                          新模块，独立 Spring Boot 应用
 ├── config/
 │   └── MeshProperties                  IAM/ask 地址、客户端白名单、代理开关
 ├── a2a/
