@@ -28,6 +28,7 @@
 | `conversation-history/` | 会话历史 |
 | `modeling-assistant/` | 建模助手（设计完成，未实现） |
 | `ui-redesign/` | 三套界面方向的对比稿 |
+| `roadmap/` | 本轮规划：为什么先做这三项、判断依据 |
 
 ## 其中最有价值的几篇
 
