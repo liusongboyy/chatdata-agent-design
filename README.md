@@ -29,6 +29,7 @@
 | `modeling-assistant/` | 建模助手（设计完成，未实现） |
 | `ui-redesign/` | 三套界面方向的对比稿 |
 | `roadmap/` | 本轮规划：为什么先做这三项、判断依据 |
+| `modeling-coverage-ui/` | 把建模覆盖度检查显示出来：域详情页 + 健康度徽章 |
 
 ## 其中最有价值的几篇
 
