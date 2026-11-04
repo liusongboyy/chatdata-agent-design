@@ -629,3 +629,88 @@ reason 新增 `MODEL_NOT_ALLOWED`——与数据权限分开，因为处理方�
 其中后两条真库/真 agent 的测试是**刻意的**：手写的 fake mapper 不解析 SQL，
 SQL 列序错了它照样"通过"；而 `UsageCollector` 只验从 `Msg` 取数，
 验不了"框架到底把 usage 放在哪"。
+
+---
+
+## 11. 管理页实现记录（2026-11-04）
+
+### 11.1 端点
+
+全部挂在 `/api/engine/admin/models`，用 `AdminApiPermissions` 那一张表判权限：
+
+| 方法 | 路径 | 权限码 |
+|---|---|---|
+| GET | `/models` | `ask.admin.models` **或** `ask.admin.domains` |
+| POST | `/models` | `ask.admin.models.write` |
+| PUT | `/models/{key}` | `ask.admin.models.write` |
+| PUT | `/models/{key}/enabled` | `ask.admin.models.write` |
+| GET | `/models/{key}/domains` | `ask.admin.models` 或 `ask.admin.domains` |
+| POST | `/models/test` | `ask.admin.models.test` |
+| POST | `/models/{key}/test` | `ask.admin.models.test` |
+
+列表对语义域页也开放：域编辑要选绑定模型。只读、不含密钥，多给一个页面看没有额外风险。
+
+**测试连通性单独成码**：它会真发一次请求、产生真实费用，与 `ask.admin.datasources.test` 同一取舍。
+
+### 11.2 三处刻意的设计
+
+**① 没有删除端点。** 审计表里存的是 `model_key`，删掉之后历史成本记录会指向
+一个查不到的键，看板上那一行只剩个裸串。停用保留历史可读性，代价只是列表里多一行灰的。
+
+**② 启停是独立端点，不是走 PUT。** 停用是最常用的动作，而 PUT 要求把其余字段
+原样带上——让前端为了一次启停去读全量再写回，等于给「并发覆盖别人的修改」开了一道门。
+
+**③ 停用前查域绑定。** 停用之后那些域会**立刻问不了**（绑定失效时明确报错，
+不回落默认），而管理员的本意通常只是"把它从问数下拉里摘掉"。不提示的话
+他会在几分钟后收到报障。
+
+### 11.3 密钥的边界
+
+入参可以带明文（新建 / 更换），**出参永远不带——连密文都不出**。
+列表里只有一个 `hasApiKey` 布尔。这是 `AdminModelServiceTest.listNeverLeaksApiKey`
+与 `AdminModelControllerTest.listResponseHasNoSecrets` 两条断言的职责。
+
+编辑时密钥留空 = 不改。这与数据源密码同一条规则：回显的价值为零，泄露的代价无穷。
+
+### 11.4 测试连通性为什么必须真发请求
+
+只校验格式的话，「地址错、密钥过期、模型名下架」三种情况完全测不出来——
+它们要到某个用户提问时才暴露，而那时报的是"处理失败，请稍后重试"，
+与真实原因毫无关系。
+
+`ModelProbe` 走的是**真实的模型工厂**（`AskEngineModelFactory`），
+不是自己 new 一个 `OpenAIChatModel`。因为那个工厂里有几个 spike 换来的不可改参数
+（`nativeStructuredOutputWithTools(false)`），绕开它测的就不是这条链路。
+
+失败时同时给**处置方向**和**供应商原文**：翻译是猜的，原文是事实。
+
+### 11.5 权限迁移
+
+`sql/25-ask-model-permission.sql` 给现有的 `chat2bi` 角色补三个码。
+`08-bootstrap.sql` 也同步更新了（新部署直接就有），但增量走独立脚本——
+DBA 要能看清这次到底加了什么。
+
+### 11.5b 真库测试差点弄坏开发库
+
+`AdminModelServiceRealDbTest` 里「设默认」「停用」这两条用例会波及**全表**：
+`clearOtherDefaults` 是 `UPDATE ... WHERE model_key <> ?`，
+它会把真实模型 `default` 的默认标记一起摘掉。
+
+实测踩到：跑完一次测试，`default` 的 `is_default` 变成 0，问数随即失败
+（"没有默认模型"）——而失败原因与"我刚跑了测试"毫无表面关联。
+
+修法不是"注意点"，是**先存后恢复**：`snapshotDefaults()` 记下跑之前
+哪些键是默认，`finally` 里 `restoreDefaults()` 设回去。连跑两次确认可重复。
+
+教训：真库测试只要有一个动作的作用域超出"自己造的数据"，就必须自己管恢复。
+按前缀清理只解决"我造的东西留下了"，不解决"我改了别人的东西"。
+
+### 11.6 新增测试
+
+| 文件 | 覆盖 |
+|---|---|
+| `ModelInputTest` | 键字符集、单价配一半→拒、0 元→拒、密钥不 trim、空角色被去掉 |
+| `AdminModelServiceTest` | 列表不含密钥、默认排第一、停用摘默认标记、域绑定提示、试连回退已存密钥 |
+| `AdminModelControllerTest` | 未登录 401、输入错 400、意外 500 不泄露库名、body 为 null 不 NPE |
+| `AdminApiPermissionsTest`（扩展） | 新控制器的覆盖测试、试连码单独、列表对域页开放 |
+| `AdminModelServiceRealDbTest` | 真库：JSON 往返、UPDATE 不动密钥、唯一索引在、域查询跑得通、**默认标记会自恢复** |
