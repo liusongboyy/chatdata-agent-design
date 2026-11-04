@@ -556,3 +556,76 @@ zhangsan   204   ￥1.02   Flash
 - 预算告警 / 限额
 - 跨租户成本分摊（现在没有多租户）
 - 按 token 数配额（那是限额，属下一期）
+
+---
+
+## 10. 实现记录（2026-11-04）
+
+### 10.1 usage 采集的关键改造
+
+原设计写的是"读 `Msg.usage` 写进审计"，实现时发现两处会让它悄悄少记：
+
+**① `DslSource.generate` 只返回 `AskDsl`，`Msg` 被丢弃。**
+usage 只在那次调用的 `Msg` 上存在过一次，事后补采不可能。改成返回
+`Generated<T>(value, usage)`，`Generated` 也用在 `AnalysisPlanSource` 与
+`NarrativeSource` 上——三条产出路径都会调模型。
+
+**② `agent.call()` 的返回消息只带**最后一轮**的 usage。**
+ReAct 循环每轮都计费，`call()` 只保留最终消息上的那一份。改用 `streamEvents`，
+对每个 `ModelCallEndEvent` 的 usage 累加（`UsageCollector.run`）。
+`call()` 内部就是 `streamEvents` 过滤 `AgentResultEvent`，所以这不是换条链路，
+只是多拿一个副产物。
+
+**③ 用 `Msg.getChatUsage()` 而不是 `getUsage()`。**
+结构化输出走"合成 generate_response 工具"那条路径时，框架把多轮用量聚合后塞进
+**metadata**（`_chat_usage`），`usage` 字段上只有最后一轮。`getChatUsage()` 两条都覆盖。
+
+### 10.2 一次提问调多次模型
+
+约束缺失会重问、渲染失败会再重问。`AskService` 里加了**请求内**的 `UsageMeter`
+（局部变量，不是字段——字段在并发下会把 A 的用量记到 B 头上，且是静默的）。
+只记最后一次会系统性低估，而低估恰好落在"这个域老是重问"这种最该被看见的场景上。
+
+### 10.3 模型越权在发起之前就拒
+
+`AskServiceFactory.forDomain(domainId, ctx, modelKey)` 用 `ModelAccess.resolve`
+判定，与 `GET /api/ask/models` 是同一个函数。拒绝抛 `AskDeniedException`，
+reason 新增 `MODEL_NOT_ALLOWED`——与数据权限分开，因为处理方式不同：
+模型问题换个模型，数据权限要找管理员。
+
+控制器把 `MODEL_NOT_ALLOWED` 作为单独的 SSE 错误码下发，前端可据此提示"换一个模型"。
+
+### 10.4 金额的"不知道"不写成 0
+
+`Cost` 在模型没配单价时返回 `null`；`CostAggregate.Row` 分开数
+`asks` 与 `pricedAsks`；前端对 `partial` / `unpriced` 分别显示
+「覆盖 x/y 次」与「未配单价」。
+
+理由：0 元是"免费"，而没配单价是"不知道"。把后者显示成 0，
+管理员会得出"成本很低"的结论——而这个结论是假的。
+
+### 10.5 累加精度：微元，不是展示精度
+
+`Cost` 产出的是 6 位小数的金额（单次调用常见 0.00216）。成本看板的累加器最初
+按**展示精度 4 位**累加，结果第一条记录就抛 `ArithmeticException: Rounding necessary`。
+
+改成按**微元（1e-6）整数**累加、输出时再舍到 4 位：既不会在第一步就炸，
+也不会有浮点累积误差。
+
+这个 bug **单测一开始没抓到**——`CostTest` 用手算的金额直接比，走不到累加器。
+是 `CostServiceTest` 用真实量级的数据喂进去才暴露的。
+
+### 10.6 测试
+
+| 文件 | 覆盖 |
+|---|---|
+| `UsageCollectorTest` | 六字段原样搬运、缺失→UNKNOWN 而非 ZERO、累加语义 |
+| `UsageRealAgentTest` | **真实 `ReActAgent`** + 假模型：usage 确实传得回来（框架改用法时这条会红） |
+| `EngineAuditMapperRealDbTest` | **真库**：INSERT 列序与占位符对得上；未采集落成 NULL 不是 0 |
+| `CostTest` | cached 是 input 子集（防高估一倍）、未配价→null、脏数据不倒扣 |
+| `CostServiceTest` | 三种"没有"（未配价 / 没采到 / 零提问）都不写成 0；均价分母是 pricedAsks |
+| `AskServiceTest.UsageCapture` | 一次提问记 modelKey+usage、重问累加、失败也记、UNKNOWN→null |
+
+其中后两条真库/真 agent 的测试是**刻意的**：手写的 fake mapper 不解析 SQL，
+SQL 列序错了它照样"通过"；而 `UsageCollector` 只验从 `Msg` 取数，
+验不了"框架到底把 usage 放在哪"。
