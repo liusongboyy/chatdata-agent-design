@@ -18,6 +18,8 @@
 | 目录 | 内容 |
 |---|---|
 | `self-built-chatbi/` | 自研问数引擎的可行性论证与 P0 spike 结果 |
+| `feishu-channel/` | 飞书渠道：webhook、身份绑定、卡片渲染、分页与反馈 |
+| `agent-mesh/` | A2A agent：身份代理、Nacos 注册、aistio 接入管理台 |
 | `iam-platform/` | IAM 与功能权限平台的设计 |
 | `policy-editor/` | 数据策略编辑器的设计（该路径后来下线） |
 | `org-hierarchy-permission/` | 组织层级动态行权限 |
