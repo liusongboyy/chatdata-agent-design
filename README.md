@@ -32,6 +32,7 @@
 | `modeling-coverage-ui/` | 把建模覆盖度检查显示出来：域详情页 + 健康度徽章 |
 | `health-dashboard/` | 全局健康度：失败原因排行、域成功率、没人用的域 |
 | `quality-analysis/` | 问数质量：按问题结构看哪类问题在拖后腿 |
+| `failure-diagnosis/` | 失败诊断：不只是「能修」，还要说清「为什么修不了」 |
 
 ## 其中最有价值的几篇
 
