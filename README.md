@@ -50,6 +50,7 @@
 | `quality-analysis/` | 问数质量：按问题结构看哪类问题在拖后腿 |
 | `failure-diagnosis/` | 失败诊断：不只是「能修」，还要说清「为什么修不了」 |
 | `model-cost/` | 模型选择与成本：多模型按域绑定，token 与费用可见 |
+| `platform/` | 平台化：可插拔渠道（抽象飞书）+ 可嵌入问数（embed grant + Web Component） |
 
 ## 其中最有价值的几篇
 
